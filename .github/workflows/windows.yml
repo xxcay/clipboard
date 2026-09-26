@@ -7,6 +7,9 @@ on:
     paths: ["windows/**", "server/**", ".github/workflows/windows.yml"]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -59,3 +62,24 @@ jobs:
         with:
           name: SharedClipboard-small
           path: windows/dist-small/SharedClipboard.exe
+      - name: Prepare release files
+        if: github.ref_name == 'claude/shared-clipboard-app-wi9m82' || github.ref_name == 'main'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force release | Out-Null
+          Copy-Item windows/dist/SharedClipboard.exe release/SharedClipboard.exe
+          Copy-Item windows/dist-small/SharedClipboard.exe release/SharedClipboard-small.exe
+      - name: Publish to the "windows-latest" release
+        if: github.ref_name == 'claude/shared-clipboard-app-wi9m82' || github.ref_name == 'main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: windows-latest
+          name: Общий буфер для Windows (последняя сборка)
+          prerelease: true
+          body: |
+            Последняя сборка программы для ПК и ноутбука. Коммит ${{ github.sha }}.
+            SharedClipboard.exe — полная версия, ничего устанавливать не нужно (~65 МБ).
+            SharedClipboard-small.exe — маленькая, нужна .NET 8 Desktop Runtime.
+          files: |
+            release/SharedClipboard.exe
+            release/SharedClipboard-small.exe
