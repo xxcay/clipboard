@@ -1,0 +1,42 @@
+<Window x:Class="SharedClipboard.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:ClassModifier="internal"
+        Title="Общий буфер — настройки"
+        Width="460" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen" Topmost="True"
+        Background="{DynamicResource Bg}"
+        FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13"
+        Foreground="{DynamicResource Fg}">
+  <StackPanel Margin="20">
+    <TextBlock Text="Подключение к роутеру" FontSize="16" FontWeight="SemiBold" />
+    <TextBlock Foreground="{DynamicResource Muted}" TextWrapping="Wrap" Margin="0,4,0,12"
+               Text="Можно вставить в поле адреса ссылку, которую напечатал установщик на роутере (с #token=…), — токен подставится сам." />
+
+    <TextBlock Text="Адрес" Margin="0,0,0,4" />
+    <TextBox x:Name="Address" TextChanged="OnAddressChanged" />
+    <TextBlock Text="Например: clip.lan или 192.168.8.1:8765" Foreground="{DynamicResource Muted}" FontSize="11.5" Margin="0,3,0,10" />
+
+    <TextBlock Text="Токен" Margin="0,0,0,4" />
+    <TextBox x:Name="Token" FontFamily="Consolas" />
+    <TextBlock Text="Показать на роутере: uci get clipd.main.token" Foreground="{DynamicResource Muted}" FontSize="11.5" Margin="0,3,0,10" />
+
+    <TextBlock Text="Имя этого устройства" Margin="0,0,0,4" />
+    <TextBox x:Name="DeviceName" />
+    <TextBlock Text="Так его увидят другие устройства, например «ПК» или «Ноутбук»" Foreground="{DynamicResource Muted}" FontSize="11.5" Margin="0,3,0,12" />
+
+    <CheckBox x:Name="Autostart" Content="Запускать вместе с Windows" />
+    <CheckBox x:Name="Notifications" Content="Уведомлять о новых записях с других устройств" />
+    <CheckBox x:Name="AutoCopy" Content="Сразу класть пришедший текст и ссылки в буфер обмена" />
+
+    <TextBlock x:Name="CheckResult" TextWrapping="Wrap" Margin="0,12,0,0" Visibility="Collapsed" />
+
+    <Grid Margin="0,16,0,0">
+      <Button Content="Проверить связь" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Click="OnCheck" x:Name="CheckButton" />
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <Button Content="Отмена" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" IsCancel="True" />
+        <Button Content="Сохранить" Style="{StaticResource PrimaryButton}" IsDefault="True" Click="OnSave" />
+      </StackPanel>
+    </Grid>
+  </StackPanel>
+</Window>

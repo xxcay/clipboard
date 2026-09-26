@@ -1,0 +1,34 @@
+name: windows
+
+on:
+  push:
+    paths: ["windows/**", "server/**", ".github/workflows/windows.yml"]
+  pull_request:
+    paths: ["windows/**", "server/**", ".github/workflows/windows.yml"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: dotnet test windows/tests/SharedClipboard.Core.Tests
+
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: dotnet publish windows/src/SharedClipboard -c Release -o windows/dist -warnaserror
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SharedClipboard
+          path: windows/dist/SharedClipboard.exe
