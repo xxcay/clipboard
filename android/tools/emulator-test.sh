@@ -77,7 +77,8 @@ curl -s -H "$H" http://127.0.0.1:8765/api/items | grep -q 'Текст из ме�
 
 echo "--- clipd log"; cat /tmp/clipd.log
 echo "--- crashes"
-adb logcat -d | grep -E "FATAL EXCEPTION|AndroidRuntime: " -A 25 | tee $OUT/crash.txt
+# The crash buffer holds only real crashes (other logs mention AndroidRuntime too).
+adb logcat -d -b crash | grep -A 30 "$PKG" | tee $OUT/crash.txt
 if [ -s $OUT/crash.txt ]; then echo "APP CRASHED"; fail=1; fi
 adb logcat -d | grep -iE "$PKG|clipboard" | tail -60 > $OUT/logcat.txt
 exit $fail
