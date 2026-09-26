@@ -5,6 +5,7 @@ on:
     paths: ["windows/**", "server/**", ".github/workflows/windows.yml"]
   pull_request:
     paths: ["windows/**", "server/**", ".github/workflows/windows.yml"]
+  workflow_dispatch:
 
 jobs:
   test:
@@ -24,11 +25,37 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - run: dotnet publish windows/src/SharedClipboard -c Release -o windows/dist -warnaserror
+      - name: Publish (self-contained)
+        run: dotnet publish windows/src/SharedClipboard -c Release -o windows/dist -warnaserror
+      - name: Publish (small, needs .NET Desktop Runtime)
+        run: dotnet publish windows/src/SharedClipboard -c Release -o windows/dist-small -p:SelfContained=false -p:EnableCompressionInSingleFile=false -warnaserror
+      - name: Build clipd for the smoke test
+        working-directory: server
+        run: go build -o clipd.exe .
+      - name: Smoke test (self-contained)
+        shell: pwsh
+        run: windows/tools/smoke.ps1 -Exe windows/dist/SharedClipboard.exe -Clipd server/clipd.exe -Out smoke -Name full
+      - name: Smoke test (small)
+        if: always()
+        shell: pwsh
+        run: windows/tools/smoke.ps1 -Exe windows/dist-small/SharedClipboard.exe -Clipd server/clipd.exe -Out smoke -Name small
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-screenshots
+          path: smoke/
       - uses: actions/upload-artifact@v4
         with:
           name: SharedClipboard
           path: windows/dist/SharedClipboard.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SharedClipboard-small
+          path: windows/dist-small/SharedClipboard.exe
