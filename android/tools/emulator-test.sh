@@ -20,8 +20,8 @@ CLIPD_TOKEN=tok /tmp/clipd -listen 0.0.0.0:8765 -data /tmp/clipd-data > /tmp/cli
 sleep 2
 post "%D0%9D%D0%BE%D1%83%D1%82%D0%B1%D1%83%D0%BA" "https://youtu.be/dQw4w9WgXcQ"
 post "%D0%9D%D0%BE%D1%83%D1%82%D0%B1%D1%83%D0%BA" "Адрес доставки: ул. Ленина, 10, кв. 5. Домофон 25, код 1234"
-convert -size 1200x800 gradient:'#ffb070-#ff5a1f' -fill white -draw "circle 600,400 600,200" /tmp/IMG_2031.jpg
-curl -s -H "$H" -H "X-Device: %D0%9F%D0%9A" -T /tmp/IMG_2031.jpg "http://127.0.0.1:8765/api/files?name=IMG_2031.jpg" > /dev/null
+python3 android/tools/make_png.py /tmp/IMG_2031.png
+curl -s -H "$H" -H "X-Device: %D0%9F%D0%9A" -T /tmp/IMG_2031.png "http://127.0.0.1:8765/api/files?name=IMG_2031.png" > /dev/null
 head -c 2500000 /dev/urandom > /tmp/deck.pptx
 curl -s -H "$H" -H "X-Device: %D0%9F%D0%9A" -T /tmp/deck.pptx "http://127.0.0.1:8765/api/files?name=%D0%9F%D1%80%D0%B5%D0%B7%D0%B5%D0%BD%D1%82%D0%B0%D1%86%D0%B8%D1%8F.pptx" > /dev/null
 
