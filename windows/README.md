@@ -17,6 +17,13 @@
 
 ## Установка
 
+Есть две сборки:
+- **маленькая** (~0.4 МБ) — нужна бесплатная .NET 8 Desktop Runtime от Microsoft
+  (ставится один раз: https://dotnet.microsoft.com/download/dotnet/8.0 →
+  «.NET Desktop Runtime 8» → Windows x64; если её нет, программа сама предложит ссылку);
+- **полная** (~65 МБ) — ничего ставить не нужно; собирается в GitHub Actions
+  (вкладка Actions → workflow `windows` → артефакт `SharedClipboard`).
+
 1. Положи `SharedClipboard.exe` в постоянную папку, например
    `C:\Users\<ты>\AppData\Local\Programs\SharedClipboard\` (или просто в «Документы»).
 2. Запусти. Windows может показать синее окно SmartScreen (программа не подписана):
@@ -37,6 +44,7 @@
 ```sh
 dotnet test tests/SharedClipboard.Core.Tests     # тесты ядра против настоящего clipd (нужен Go)
 dotnet publish src/SharedClipboard -c Release -o dist   # dist/SharedClipboard.exe (~65 МБ, всё внутри)
+dotnet publish src/SharedClipboard -c Release -o dist-small -p:SelfContained=false -p:EnableCompressionInSingleFile=false  # ~0.4 МБ, нужна .NET 8 Desktop Runtime
 ```
 
 Устройство:
