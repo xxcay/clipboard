@@ -40,3 +40,42 @@ jobs:
             Последняя сборка приложения для телефона. Коммит ${{ github.sha }}.
             Скачайте SharedClipboard.apk на телефон и установите.
           files: android/SharedClipboard.apk
+
+  emulator-test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - uses: actions/download-artifact@v4
+        with:
+          name: SharedClipboard-apk
+          path: android
+      - name: Tools and KVM
+        run: |
+          sudo apt-get install -y -qq imagemagick > /dev/null
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run on an Android 14 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash android/tools/emulator-test.sh android/SharedClipboard.apk
+      - name: Publish screenshots
+        if: always() && (github.ref_name == 'claude/shared-clipboard-app-wi9m82' || github.ref_name == 'main')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-ci
+          name: Android — скриншоты автотеста
+          prerelease: true
+          body: Скриншоты последнего прогона на эмуляторе. Коммит ${{ github.sha }}.
+          files: screens/*

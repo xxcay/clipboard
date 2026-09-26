@@ -1,6 +1,7 @@
 package io.github.xxcay.clipboard
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Build
@@ -17,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
@@ -25,14 +27,31 @@ import io.github.xxcay.clipboard.ui.ClipTheme
 import io.github.xxcay.clipboard.ui.MainScreen
 import io.github.xxcay.clipboard.ui.SettingsScreen
 
+/** Values from a sharedclipboard://setup link; shown in settings, saved only by the user. */
+data class SetupLink(val server: String?, val token: String?, val name: String?)
+
 class MainActivity : ComponentActivity() {
+    private val setup = mutableStateOf<SetupLink?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
         )
-        setContent { ClipTheme { Root() } }
+        if (savedInstanceState == null) setup.value = parseSetup(intent)
+        setContent { ClipTheme { Root(setup.value, onSetupShown = { setup.value = null }) } }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        parseSetup(intent)?.let { setup.value = it }
+    }
+
+    private fun parseSetup(intent: Intent?): SetupLink? {
+        val uri = intent?.data ?: return null
+        if (uri.scheme != "sharedclipboard" || uri.host != "setup") return null
+        return SetupLink(uri.getQueryParameter("server"), uri.getQueryParameter("token"), uri.getQueryParameter("name"))
     }
 
     override fun onStart() {
@@ -52,10 +71,18 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun Root() {
+private fun Root(setup: SetupLink?, onSetupShown: () -> Unit) {
     val context = LocalContext.current
     val app = context.app
     var screen by rememberSaveable { mutableStateOf(if (app.settings.isConfigured) "main" else "settings") }
+    var prefill by remember { mutableStateOf<SetupLink?>(null) }
+    LaunchedEffect(setup) {
+        if (setup != null) {
+            prefill = setup
+            screen = "settings"
+            onSetupShown()
+        }
+    }
 
     // Ask once for notifications (Android 13+), after the app is set up.
     val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -75,8 +102,15 @@ private fun Root() {
             "main" -> MainScreen(onSettings = { screen = "settings" })
             else -> SettingsScreen(
                 firstRun = !app.settings.isConfigured,
-                onBack = { if (app.settings.isConfigured) screen = "main" },
-                onSaved = { screen = "main" },
+                prefill = prefill,
+                onBack = {
+                    prefill = null
+                    if (app.settings.isConfigured) screen = "main"
+                },
+                onSaved = {
+                    prefill = null
+                    screen = "main"
+                },
             )
         }
     }

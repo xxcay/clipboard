@@ -78,6 +78,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.xxcay.clipboard.R
 import io.github.xxcay.clipboard.SendTileService
+import io.github.xxcay.clipboard.SetupLink
 import io.github.xxcay.clipboard.ServerAddress
 import io.github.xxcay.clipboard.SyncService
 import io.github.xxcay.clipboard.app
@@ -85,15 +86,15 @@ import io.github.xxcay.clipboard.widget.ClipboardWidgetReceiver
 import kotlinx.coroutines.launch
 
 @Composable
-fun SettingsScreen(firstRun: Boolean, onBack: () -> Unit, onSaved: () -> Unit) {
+fun SettingsScreen(firstRun: Boolean, prefill: SetupLink?, onBack: () -> Unit, onSaved: () -> Unit) {
     val context = LocalContext.current
     val app = context.app
     val s = app.settings
     val scope = rememberCoroutineScope()
 
-    var address by rememberSaveable { mutableStateOf(s.serverUrl) }
-    var token by rememberSaveable { mutableStateOf(s.token) }
-    var device by rememberSaveable { mutableStateOf(s.deviceName) }
+    var address by rememberSaveable(prefill) { mutableStateOf(prefill?.server ?: s.serverUrl) }
+    var token by rememberSaveable(prefill) { mutableStateOf(prefill?.token ?: s.token) }
+    var device by rememberSaveable(prefill) { mutableStateOf(prefill?.name ?: s.deviceName) }
     var background by rememberSaveable { mutableStateOf(s.backgroundSync) }
     var notifications by rememberSaveable { mutableStateOf(s.notifications) }
     var autoSave by rememberSaveable { mutableStateOf(s.autoSaveFiles) }
