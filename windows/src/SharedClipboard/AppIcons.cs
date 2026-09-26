@@ -20,15 +20,41 @@ static class AppIcons
             return cached;
         var size = Math.Max(16, WinForms.SystemInformation.SmallIconSize.Width);
         using var stream = Application.GetResourceStream(IcoUri)!.Stream;
-        using var baseIcon = new Drawing.Icon(stream, size, size);
-        using var bmp = baseIcon.ToBitmap();
+        var baseIcon = new Drawing.Icon(stream, size, size);
+        Drawing.Icon icon;
+        try
+        {
+            icon = Render(baseIcon, size, online, unread);
+            baseIcon.Dispose();
+        }
+        catch (Exception e)
+        {
+            // Never let a cosmetic detail stop the app: fall back to the plain icon.
+            SharedClipboard.Core.Log.Write($"tray icon: {e.Message}");
+            icon = baseIcon;
+        }
+        TrayCache[(online, unread)] = icon;
+        return icon;
+    }
+
+    static Drawing.Icon Render(Drawing.Icon baseIcon, int size, bool online, bool unread)
+    {
+        using var source = baseIcon.ToBitmap();
+        // Draw into a fresh 32-bit bitmap: GDI+ refuses some operations on
+        // bitmaps that come straight from an icon.
+        using var bmp = new Drawing.Bitmap(size, size, Drawing.Imaging.PixelFormat.Format32bppArgb);
         using (var g = Drawing.Graphics.FromImage(bmp))
         {
             g.SmoothingMode = Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            if (!online)
+            g.InterpolationMode = Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+            var dest = new Drawing.Rectangle(0, 0, size, size);
+            if (online)
+            {
+                g.DrawImage(source, dest);
+            }
+            else
             {
                 // Desaturate and fade: "no connection".
-                using var gray = (Drawing.Bitmap)bmp.Clone();
                 var m = new Drawing.Imaging.ColorMatrix(
                 [
                     [0.3f, 0.3f, 0.3f, 0, 0],
@@ -39,8 +65,7 @@ static class AppIcons
                 ]);
                 using var attrs = new Drawing.Imaging.ImageAttributes();
                 attrs.SetColorMatrix(m);
-                g.Clear(Drawing.Color.Transparent);
-                g.DrawImage(gray, new Drawing.Rectangle(0, 0, size, size), 0, 0, size, size, Drawing.GraphicsUnit.Pixel, attrs);
+                g.DrawImage(source, dest, 0, 0, source.Width, source.Height, Drawing.GraphicsUnit.Pixel, attrs);
             }
             if (unread)
             {
@@ -52,8 +77,6 @@ static class AppIcons
                 g.DrawEllipse(ring, rect);
             }
         }
-        var icon = Drawing.Icon.FromHandle(bmp.GetHicon());
-        TrayCache[(online, unread)] = icon;
-        return icon;
+        return Drawing.Icon.FromHandle(bmp.GetHicon());
     }
 }

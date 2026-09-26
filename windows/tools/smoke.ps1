@@ -17,7 +17,7 @@ function Shot($file) {
 $data = Join-Path $env:TEMP "clipd-smoke"
 Remove-Item -Recurse -Force $data -ErrorAction SilentlyContinue
 $env:CLIPD_TOKEN = "tok"
-$clipd = Start-Process $Clipd -ArgumentList "-listen 127.0.0.1:8765 -data `"$data`"" -PassThru -WindowStyle Hidden
+$clipdProc = Start-Process $Clipd -ArgumentList "-listen 127.0.0.1:8765 -data `"$data`"" -PassThru -WindowStyle Hidden
 Start-Sleep 2
 $h = @{ Authorization = "Bearer tok"; "X-Device" = "s24" }
 Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8765/api/clip -Headers $h -Body "https://example.com/link" | Out-Null
@@ -58,5 +58,5 @@ Get-WinEvent -FilterHashtable @{ LogName = "Application"; StartTime = $started }
     ForEach-Object { Write-Host "[$($_.ProviderName)] $($_.Message)" }
 
 if (-not $p.HasExited) { Stop-Process $p -Force }
-Stop-Process $clipd -Force
+Stop-Process $clipdProc -Force
 if (-not $ok) { exit 1 }
