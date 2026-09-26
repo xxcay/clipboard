@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Общий буфер</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --fg:#1b1d21; --muted:#6b7280; --line:#e3e5e9; --accent:#2563eb; --bad:#dc2626; --ok:#16a34a; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#111317; --card:#1b1e24; --fg:#e8eaed; --muted:#9aa0a8; --line:#2c3038; --accent:#60a5fa; --bad:#f87171; --ok:#4ade80; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width:720px; margin:0 auto; padding:16px; }
+  header { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  h1 { font-size:20px; margin:0; flex:1; }
+  .status { font-size:13px; color:var(--muted); }
+  .status b { color:var(--bad); } .status.on b { color:var(--ok); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:12px; }
+  textarea, input { width:100%; font:inherit; color:inherit; background:transparent; border:1px solid var(--line); border-radius:8px; padding:8px; }
+  textarea { min-height:70px; resize:vertical; }
+  button { font:inherit; border:0; border-radius:8px; padding:8px 14px; background:var(--accent); color:#fff; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--accent); padding:4px 8px; }
+  button.ghost.bad { color:var(--bad); }
+  .row { display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+  .drop { border:2px dashed var(--line); border-radius:12px; padding:18px; text-align:center; color:var(--muted); cursor:pointer; }
+  .drop.over { border-color:var(--accent); color:var(--accent); }
+  .item { display:flex; gap:10px; align-items:flex-start; padding:10px 0; border-top:1px solid var(--line); }
+  .item:first-child { border-top:0; }
+  .icon { font-size:22px; width:28px; text-align:center; }
+  .body { flex:1; min-width:0; }
+  .text { white-space:pre-wrap; word-break:break-word; max-height:7.5em; overflow:hidden; }
+  .meta { font-size:12px; color:var(--muted); margin-top:2px; }
+  .actions { display:flex; flex-direction:column; align-items:flex-end; }
+  a { color:var(--accent); word-break:break-all; }
+  .thumb { max-width:120px; max-height:90px; border-radius:6px; display:block; margin-top:4px; }
+  .hidden { display:none; }
+  progress { width:100%; }
+  .empty { color:var(--muted); text-align:center; padding:12px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Общий буфер</h1>
+    <span id="status" class="status"><b>●</b> не подключено</span>
+  </header>
+
+  <section id="setup" class="card hidden">
+    <div>Токен доступа (выдаётся при установке на роутер):</div>
+    <div class="row"><input id="token" placeholder="токен" autocomplete="off"></div>
+    <div class="row"><input id="device" placeholder="имя устройства, например «браузер»"></div>
+    <div class="row"><button id="save">Подключиться</button></div>
+  </section>
+
+  <section id="app" class="hidden">
+    <div class="card">
+      <textarea id="text" placeholder="Текст или ссылка…"></textarea>
+      <div class="row">
+        <button id="send">Отправить текст</button>
+        <span class="status">Ctrl+V файла в любом месте страницы — отправит файл</span>
+      </div>
+    </div>
+    <div id="drop" class="card drop">
+      Перетащите файлы сюда или нажмите, чтобы выбрать (до <span id="maxmb">20</span> МБ)
+      <input id="file" type="file" multiple class="hidden">
+      <div id="uploads"></div>
+    </div>
+    <div class="card" id="list"></div>
+    <div class="row status">
+      <span id="info"></span>
+      <button class="ghost" id="logout">сменить токен</button>
+    </div>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(k) { try { return localStorage.getItem('clipd.' + k) || ''; } catch { return ''; } },
+  set(k, v) { try { localStorage.setItem('clipd.' + k, v); } catch {} },
+};
+if (location.hash.startsWith('#token=')) {
+  store.set('token', decodeURIComponent(location.hash.slice(7)));
+  history.replaceState(null, '', location.pathname);
+}
+let token = store.get('token');
+let device = store.get('device') || 'браузер';
+let items = new Map();
+let ws, retry = 1000, limits = { maxFileBytes: 20 << 20 };
+
+function showSetup() {
+  $('setup').classList.remove('hidden'); $('app').classList.add('hidden');
+  $('token').value = token; $('device').value = device;
+}
+function showApp() { $('setup').classList.add('hidden'); $('app').classList.remove('hidden'); }
+
+$('save').onclick = () => {
+  token = $('token').value.trim(); device = $('device').value.trim() || 'браузер';
+  store.set('token', token); store.set('device', device);
+  showApp(); connect();
+};
+$('logout').onclick = () => { if (ws) ws.close(); showSetup(); };
+
+function setStatus(on, text) {
+  $('status').className = 'status' + (on ? ' on' : '');
+  $('status').innerHTML = '<b>●</b> ' + text;
+}
+
+async function checkToken() {
+  const r = await fetch('api/items/latest', { headers: auth() }).catch(() => null);
+  return !r || r.status !== 401;
+}
+
+function connect() {
+  if (!token) return showSetup();
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const base = location.pathname.replace(/[^/]*$/, '');
+  ws = new WebSocket(`${proto}://${location.host}${base}ws?token=${encodeURIComponent(token)}&device=${encodeURIComponent(device)}`);
+  const me = ws;
+  ws.onopen = () => { retry = 1000; };
+  ws.onmessage = (ev) => {
+    const m = JSON.parse(ev.data);
+    if (m.type === 'hello') {
+      items = new Map((m.items || []).map((it) => [it.id, it]));
+      limits = m.limits || limits;
+      $('maxmb').textContent = Math.round(limits.maxFileBytes / 1048576);
+      setDevices(m.devices); render();
+    } else if (m.type === 'clip') { items.set(m.item.id, m.item); render(); }
+    else if (m.type === 'delete') { items.delete(m.id); render(); }
+    else if (m.type === 'devices') { setDevices(m.devices); }
+  };
+  ws.onclose = async () => {
+    if (me !== ws || $('app').classList.contains('hidden')) return;
+    if (!(await checkToken())) { setStatus(false, 'неверный токен'); return showSetup(); }
+    setStatus(false, 'переподключение…');
+    setTimeout(connect, retry); retry = Math.min(retry * 2, 15000);
+  };
+}
+function setDevices(list) { setStatus(true, 'онлайн: ' + (list || []).join(', ')); }
+
+function auth(extra) { return Object.assign({ Authorization: 'Bearer ' + token, 'X-Device': encodeURIComponent(device) }, extra || {}); }
+const fileURL = (it, inline) => `api/files/${it.id}?token=${encodeURIComponent(token)}${inline ? '&inline=1' : ''}`;
+
+function fmtSize(n) { return n >= 1048576 ? (n / 1048576).toFixed(1) + ' МБ' : n >= 1024 ? (n / 1024).toFixed(0) + ' КБ' : n + ' Б'; }
+function fmtTime(ts) {
+  const d = new Date(ts), now = new Date();
+  const t = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  return d.toDateString() === now.toDateString() ? t : d.toLocaleDateString('ru-RU') + ' ' + t;
+}
+function iconFor(it) {
+  if (it.kind === 'url') return '🔗';
+  if (it.kind === 'text') return '📝';
+  const m = it.file.mime || '';
+  if (m.startsWith('image/')) return '🖼️';
+  if (m.startsWith('video/')) return '🎬';
+  if (m.startsWith('audio/')) return '🎵';
+  if (/presentation|powerpoint/.test(m)) return '📊';
+  if (/sheet|excel|csv/.test(m)) return '📈';
+  if (/pdf|word|document|text/.test(m)) return '📄';
+  if (/zip|rar|7z|compressed/.test(m)) return '🗜️';
+  return '📦';
+}
+function el(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) k.startsWith('on') ? (e[k] = v) : e.setAttribute(k, v);
+  for (const k of kids) if (k != null) e.append(k);
+  return e;
+}
+
+function render() {
+  const list = $('list'); list.textContent = '';
+  const arr = [...items.values()].sort((a, b) => b.ts - a.ts);
+  if (!arr.length) list.append(el('div', { class: 'empty' }, 'Пока пусто'));
+  let total = 0;
+  for (const it of arr) {
+    let main, acts = [];
+    if (it.kind === 'file') {
+      total += it.file.size;
+      main = el('div', {}, el('a', { href: fileURL(it), download: it.file.name }, it.file.name));
+      if ((it.file.mime || '').startsWith('image/') && !/heic|heif|dng|tiff/.test(it.file.mime))
+        main.append(el('a', { href: fileURL(it, true), target: '_blank' }, el('img', { class: 'thumb', src: fileURL(it, true), loading: 'lazy', alt: '' })));
+      acts.push(el('a', { href: fileURL(it), download: it.file.name }, 'скачать'));
+    } else if (it.kind === 'url') {
+      main = el('a', { href: it.text, target: '_blank', rel: 'noopener' }, it.text);
+      acts.push(el('button', { class: 'ghost', onclick: () => copy(it.text) }, 'копировать'));
+    } else {
+      main = el('div', { class: 'text' }, it.text);
+      acts.push(el('button', { class: 'ghost', onclick: () => copy(it.text) }, 'копировать'));
+    }
+    acts.push(el('button', { class: 'ghost bad', onclick: () => del(it.id) }, 'удалить'));
+    const meta = [it.from, fmtTime(it.ts)];
+    if (it.kind === 'file') meta.push(fmtSize(it.file.size));
+    list.append(el('div', { class: 'item' },
+      el('div', { class: 'icon' }, iconFor(it)),
+      el('div', { class: 'body' }, main, el('div', { class: 'meta' }, meta.join(' · '))),
+      el('div', { class: 'actions' }, ...acts)));
+  }
+  $('info').textContent = `записей: ${arr.length}, файлы: ${fmtSize(total)}`;
+}
+
+async function copy(text) {
+  try { await navigator.clipboard.writeText(text); return; } catch {}
+  const ta = el('textarea', { style: 'position:fixed;opacity:0' }); ta.value = text;
+  document.body.append(ta); ta.select(); document.execCommand('copy'); ta.remove();
+}
+async function del(id) { await fetch('api/items/' + id, { method: 'DELETE', headers: auth() }); }
+
+$('send').onclick = async () => {
+  const text = $('text').value;
+  if (!text.trim()) return;
+  const r = await fetch('api/clip', { method: 'POST', headers: auth({ 'Content-Type': 'application/json' }), body: JSON.stringify({ text }) });
+  if (r.ok) $('text').value = ''; else alert('Ошибка: ' + ((await r.json().catch(() => ({}))).error || r.status));
+};
+$('text').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) $('send').click(); });
+
+function upload(file) {
+  if (file.size > limits.maxFileBytes) { alert(`${file.name}: больше ${Math.round(limits.maxFileBytes / 1048576)} МБ`); return; }
+  const bar = el('progress', { max: 100, value: 0 });
+  const row = el('div', { class: 'meta' }, file.name + ' ', bar);
+  $('uploads').append(row);
+  const x = new XMLHttpRequest();
+  x.open('PUT', 'api/files?name=' + encodeURIComponent(file.name));
+  for (const [k, v] of Object.entries(auth())) x.setRequestHeader(k, v);
+  if (file.type) x.setRequestHeader('Content-Type', file.type);
+  x.upload.onprogress = (e) => { if (e.lengthComputable) bar.value = (e.loaded / e.total) * 100; };
+  x.onloadend = () => {
+    if (x.status !== 201) alert(file.name + ': ' + (JSON.parse(x.responseText || '{}').error || 'ошибка загрузки'));
+    row.remove();
+  };
+  x.send(file);
+}
+const drop = $('drop');
+drop.onclick = (e) => { if (e.target === drop) $('file').click(); };
+$('file').onchange = () => { [...$('file').files].forEach(upload); $('file').value = ''; };
+drop.ondragover = (e) => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove('over'); [...e.dataTransfer.files].forEach(upload); };
+document.addEventListener('paste', (e) => {
+  const files = [...(e.clipboardData?.files || [])];
+  if (files.length) { e.preventDefault(); files.forEach(upload); }
+});
+
+if (token) { showApp(); connect(); } else showSetup();
+</script>
+</body>
+</html>
