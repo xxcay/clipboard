@@ -39,7 +39,7 @@ sealed class ItemViewModel(ClipItem item, bool mine) : INotifyPropertyChanged
         {
             var time = Item.Time.ToLocalTime();
             var when = time.Date == DateTime.Today ? time.ToString("HH:mm") : time.ToString("dd.MM HH:mm");
-            var from = IsMine ? "это устройство" : Item.From;
+            var from = IsMine ? "Вы" : Item.From;
             var parts = new List<string> { from, when };
             if (Item.IsFile)
                 parts.Add(Format.Size(Item.File!.Size));
@@ -47,26 +47,30 @@ sealed class ItemViewModel(ClipItem item, bool mine) : INotifyPropertyChanged
         }
     }
 
-    /// <summary>Segoe Fluent Icons glyph.</summary>
-    public string Glyph
+    /// <summary>Vector icon for the tile (see the Icon* resources in App.xaml).</summary>
+    public Geometry Icon => (Geometry)Application.Current.FindResource(IconKey);
+
+    string IconKey
     {
         get
         {
             if (Item.IsUrl)
-                return ""; // link
+                return "IconLink";
             if (!Item.IsFile)
-                return ""; // copy / text
+                return "IconText";
             var mime = Item.File!.Mime;
             var ext = Path.GetExtension(Item.File.Name).ToLowerInvariant();
             if (mime.StartsWith("image/"))
-                return ""; // photo
+                return "IconImage";
             if (mime.StartsWith("video/"))
-                return ""; // video
+                return "IconVideo";
             if (mime.StartsWith("audio/"))
-                return ""; // music
+                return "IconMusic";
+            if (ext is ".ppt" or ".pptx" or ".odp" or ".key")
+                return "IconSlides";
             if (ext is ".zip" or ".rar" or ".7z")
-                return ""; // zip folder
-            return ""; // document
+                return "IconFolder";
+            return "IconDoc";
         }
     }
 

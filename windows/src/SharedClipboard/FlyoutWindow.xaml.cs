@@ -1,7 +1,10 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using SharedClipboard.Core;
 
@@ -13,28 +16,24 @@ namespace SharedClipboard;
 /// </summary>
 partial class FlyoutWindow : Window
 {
-    const string DefaultFooter = "Перетащите файлы сюда или нажмите Ctrl+V";
-
     readonly AppController _app;
-    readonly DispatcherTimer _footerTimer = new() { Interval = TimeSpan.FromSeconds(4) };
+    readonly ICollectionView _view;
+    readonly DispatcherTimer _toastTimer = new() { Interval = TimeSpan.FromSeconds(2.6) };
     Point? _dragStart;
     ListBoxItem? _pressedItem;
     bool _dragging;
+    string _filter = "all";
 
     public FlyoutWindow(AppController app)
     {
         _app = app;
         InitializeComponent();
         DataContext = app;
-        FooterText.Text = DefaultFooter;
-        _footerTimer.Tick += (_, _) =>
-        {
-            _footerTimer.Stop();
-            FooterText.Text = DefaultFooter;
-            FooterText.Foreground = (Brush)FindResource("Muted");
-        };
-        app.Items.CollectionChanged += (_, _) => UpdateEmpty();
-        UpdateEmpty();
+        _view = CollectionViewSource.GetDefaultView(app.Items);
+        _view.Filter = o => Matches((ItemViewModel)o);
+        _toastTimer.Tick += (_, _) => HideToast();
+        app.Items.CollectionChanged += (_, _) => UpdateCounts();
+        UpdateCounts();
     }
 
     /// <summary>When the flyout last hid itself; used to make the tray click a toggle.</summary>
@@ -47,46 +46,126 @@ partial class FlyoutWindow : Window
     {
         Theme.Apply();
         var area = SystemParameters.WorkArea;
-        Left = area.Right - Width;
-        Top = area.Bottom - Height;
+        Left = area.Right - Width + 6;
+        Top = area.Bottom - Height + 6;
         Show();
         Activate();
         List.Focus();
     }
 
+    // ---- Toast ----
+
     public void ShowStatus(string text, bool error = false)
     {
-        FooterText.Text = text;
-        FooterText.Foreground = (Brush)FindResource(error ? "Danger" : "Fg");
-        _footerTimer.Stop();
-        _footerTimer.Start();
+        ShowToast(text, error ? "IconError" : "IconCheck", error ? "Danger" : "Ok");
+        _toastTimer.Stop();
+        _toastTimer.Start();
     }
 
     /// <summary>Progress messages stay until replaced.</summary>
     public void ShowProgress(string text)
     {
-        _footerTimer.Stop();
-        FooterText.Text = text;
-        FooterText.Foreground = (Brush)FindResource("Fg");
+        _toastTimer.Stop();
+        ShowToast(text, "IconUpload", "Accent");
     }
 
-    public void ClearProgress() => _footerTimer.Start();
-
-    public void UpdateHeader(HubState state, IReadOnlyList<string> devices, string? error)
+    public void ClearProgress()
     {
-        var (color, text) = state switch
-        {
-            HubState.Online => ("Ok", devices.Count > 0 ? "Онлайн: " + string.Join(", ", devices) : "Онлайн"),
-            HubState.Connecting => ("Muted", "Подключение…"),
-            HubState.AuthFailed => ("Danger", "Неверный токен — откройте настройки"),
-            HubState.NotConfigured => ("Danger", "Не настроено — откройте настройки"),
-            _ => ("Danger", error ?? "Нет связи с роутером"),
-        };
-        StatusDot.Fill = (Brush)FindResource(color);
-        StatusText.Text = text;
+        _toastTimer.Stop();
+        _toastTimer.Start();
     }
 
-    void UpdateEmpty() => EmptyText.Visibility = _app.Items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    void ShowToast(string text, string icon, string color)
+    {
+        ToastText.Text = text;
+        ToastIcon.Data = (Geometry)FindResource(icon);
+        ToastIcon.Fill = (Brush)FindResource(color);
+        if (Toast.Visibility != Visibility.Visible)
+        {
+            Toast.Visibility = Visibility.Visible;
+            Toast.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(160)));
+        }
+    }
+
+    void HideToast()
+    {
+        _toastTimer.Stop();
+        var fade = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(220));
+        fade.Completed += (_, _) =>
+        {
+            if (!_toastTimer.IsEnabled && Toast.Opacity == 0)
+                Toast.Visibility = Visibility.Collapsed;
+        };
+        Toast.BeginAnimation(OpacityProperty, fade);
+    }
+
+    // ---- Connection banner: only when something is wrong ----
+
+    public void UpdateConnection(HubState state, string? error)
+    {
+        string? text = state switch
+        {
+            HubState.Online => null,
+            HubState.AuthFailed => "Неверный токен. Нажмите, чтобы открыть настройки",
+            HubState.NotConfigured => "Не настроено. Нажмите, чтобы указать адрес роутера и токен",
+            HubState.Offline => "Нет связи с роутером — переподключаюсь…",
+            // While reconnecting keep the previous message, so the banner does not blink.
+            _ => Banner.Visibility == Visibility.Visible ? BannerText.Text : null,
+        };
+        Banner.Visibility = text == null ? Visibility.Collapsed : Visibility.Visible;
+        if (text != null)
+            BannerText.Text = text;
+    }
+
+    void OnBannerClick(object sender, MouseButtonEventArgs e) => _app.ShowSettings();
+
+    // ---- Filters and counts ----
+
+    bool Matches(ItemViewModel vm) => _filter switch
+    {
+        "files" => vm.IsFile,
+        "links" => vm.IsUrl,
+        "text" => vm.IsText,
+        _ => true,
+    };
+
+    void OnFilter(object sender, RoutedEventArgs e)
+    {
+        _filter = sender == ChipFiles ? "files" : sender == ChipLinks ? "links" : sender == ChipText ? "text" : "all";
+        _view?.Refresh();
+        UpdateCounts();
+    }
+
+    void UpdateCounts()
+    {
+        if (_view == null)
+            return;
+        var items = _app.Items;
+        var files = items.Count(i => i.IsFile);
+        CountText.Text = items.Count == 0
+            ? "Скопируйте на одном устройстве — вставьте на другом"
+            : files > 0
+                ? $"{Plural(items.Count, "запись", "записи", "записей")} · {Plural(files, "файл", "файла", "файлов")}"
+                : Plural(items.Count, "запись", "записи", "записей");
+
+        var empty = _view.IsEmpty;
+        EmptyState.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
+        (EmptyTitle.Text, EmptyHint.Text) = (_filter, items.Count) switch
+        {
+            (_, 0) => ("Здесь пока пусто", "Скопируйте что-нибудь и нажмите Ctrl+V или перетащите файлы в это окно"),
+            ("files", _) => ("Файлов нет", "Перетащите файлы сюда, чтобы отправить их на другие устройства"),
+            ("links", _) => ("Ссылок нет", "Скопируйте ссылку и нажмите Ctrl+V"),
+            _ => ("Текста нет", "Скопируйте текст и нажмите Ctrl+V"),
+        };
+    }
+
+    static string Plural(int n, string one, string few, string many)
+    {
+        var mod100 = n % 100;
+        var mod10 = n % 10;
+        var word = mod100 is >= 11 and <= 14 ? many : mod10 == 1 ? one : mod10 is >= 2 and <= 4 ? few : many;
+        return $"{n} {word}";
+    }
 
     void OnDeactivated(object? sender, EventArgs e)
     {

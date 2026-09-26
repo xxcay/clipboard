@@ -71,7 +71,7 @@ static class AppIcons
             {
                 var d = size * 0.5f;
                 var rect = new Drawing.RectangleF(size - d, size - d, d - 0.5f, d - 0.5f);
-                using var fill = new Drawing.SolidBrush(Drawing.Color.FromArgb(249, 115, 22));
+                using var fill = new Drawing.SolidBrush(Drawing.Color.FromArgb(229, 72, 77));
                 using var ring = new Drawing.Pen(Drawing.Color.White, Math.Max(1f, size / 16f));
                 g.FillEllipse(fill, rect);
                 g.DrawEllipse(ring, rect);

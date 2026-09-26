@@ -3,40 +3,114 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:ClassModifier="internal"
         Title="Общий буфер — настройки"
-        Width="460" SizeToContent="Height" ResizeMode="NoResize"
+        Width="500" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         WindowStartupLocation="CenterScreen" Topmost="True"
-        Background="{DynamicResource Bg}"
+        UseLayoutRounding="True" TextOptions.TextFormattingMode="Display"
         FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13"
         Foreground="{DynamicResource Fg}">
-  <StackPanel Margin="20">
-    <TextBlock Text="Подключение к роутеру" FontSize="16" FontWeight="SemiBold" />
-    <TextBlock Foreground="{DynamicResource Muted}" TextWrapping="Wrap" Margin="0,4,0,12"
-               Text="Можно вставить в поле адреса ссылку, которую напечатал установщик на роутере (с #token=…), — токен подставится сам." />
+  <Window.Resources>
+    <Style x:Key="Label" TargetType="TextBlock">
+      <Setter Property="FontWeight" Value="Medium" />
+      <Setter Property="Margin" Value="0,0,0,6" />
+    </Style>
+    <Style x:Key="Hint" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Margin" Value="0,5,0,14" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style x:Key="Section" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+      <Setter Property="FontSize" Value="11.5" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="0,0,0,12" />
+    </Style>
+  </Window.Resources>
 
-    <TextBlock Text="Адрес" Margin="0,0,0,4" />
-    <TextBox x:Name="Address" TextChanged="OnAddressChanged" />
-    <TextBlock Text="Например: clip.lan или 192.168.8.1:8765" Foreground="{DynamicResource Muted}" FontSize="11.5" Margin="0,3,0,10" />
+  <Border Margin="18" CornerRadius="18" Background="{DynamicResource Bg}"
+          BorderBrush="{DynamicResource CardBorder}" BorderThickness="1">
+    <Border.Effect>
+      <DropShadowEffect Color="#7A3A10" BlurRadius="28" ShadowDepth="5" Opacity="0.2" />
+    </Border.Effect>
+    <StackPanel>
+      <!-- Title bar (drag to move) -->
+      <Grid Margin="22,18,14,6" Background="Transparent" MouseLeftButtonDown="OnDrag">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <Border Width="42" Height="42" CornerRadius="13" Background="{DynamicResource AccentGradient}">
+          <Border.Effect>
+            <DropShadowEffect Color="#FF5A1F" BlurRadius="12" ShadowDepth="2" Opacity="0.3" />
+          </Border.Effect>
+          <Path Data="{StaticResource IconClipboardSync}" Fill="White" Stretch="Uniform" Width="21" Height="21" />
+        </Border>
+        <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+          <TextBlock Text="Настройки" FontFamily="{StaticResource DisplayFont}" FontSize="19" FontWeight="SemiBold" />
+          <TextBlock Text="Общий буфер для ПК, ноутбука и телефона" Foreground="{DynamicResource Muted}" FontSize="12" Margin="0,1,0,0" />
+        </StackPanel>
+        <Button Grid.Column="2" Style="{StaticResource IconButton}" Tag="{StaticResource IconClose}"
+                VerticalAlignment="Top" Click="OnCancel" ToolTip="Закрыть" />
+      </Grid>
 
-    <TextBlock Text="Токен" Margin="0,0,0,4" />
-    <TextBox x:Name="Token" FontFamily="Consolas" />
-    <TextBlock Text="Показать на роутере: uci get clipd.main.token" Foreground="{DynamicResource Muted}" FontSize="11.5" Margin="0,3,0,10" />
+      <StackPanel Margin="24,14,24,22">
+        <TextBlock Text="ПОДКЛЮЧЕНИЕ" Style="{StaticResource Section}" />
 
-    <TextBlock Text="Имя этого устройства" Margin="0,0,0,4" />
-    <TextBox x:Name="DeviceName" />
-    <TextBlock Text="Так его увидят другие устройства, например «ПК» или «Ноутбук»" Foreground="{DynamicResource Muted}" FontSize="11.5" Margin="0,3,0,12" />
+        <TextBlock Text="Адрес роутера" Style="{StaticResource Label}" />
+        <TextBox x:Name="Address" TextChanged="OnAddressChanged" />
+        <TextBlock Style="{StaticResource Hint}"
+                   Text="clip.lan или 192.168.8.1:8765. Можно вставить ссылку с #token=… из установщика — токен подставится сам." />
 
-    <CheckBox x:Name="Autostart" Content="Запускать вместе с Windows" />
-    <CheckBox x:Name="Notifications" Content="Уведомлять о новых записях с других устройств" />
-    <CheckBox x:Name="AutoCopy" Content="Сразу класть пришедший текст и ссылки в буфер обмена" />
+        <TextBlock Text="Токен" Style="{StaticResource Label}" />
+        <TextBox x:Name="Token" FontFamily="Cascadia Mono, Consolas" />
+        <TextBlock Style="{StaticResource Hint}" Text="Посмотреть на роутере: uci get clipd.main.token" />
 
-    <TextBlock x:Name="CheckResult" TextWrapping="Wrap" Margin="0,12,0,0" Visibility="Collapsed" />
+        <TextBlock Text="Имя этого устройства" Style="{StaticResource Label}" />
+        <TextBox x:Name="DeviceName" />
+        <TextBlock Style="{StaticResource Hint}" Text="Так его увидят другие устройства: «ПК», «Ноутбук»…" />
 
-    <Grid Margin="0,16,0,0">
-      <Button Content="Проверить связь" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Click="OnCheck" x:Name="CheckButton" />
-      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-        <Button Content="Отмена" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" IsCancel="True" />
-        <Button Content="Сохранить" Style="{StaticResource PrimaryButton}" IsDefault="True" Click="OnSave" />
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+          <Button x:Name="CheckButton" Style="{StaticResource SecondaryButton}" Click="OnCheck">
+            <StackPanel Orientation="Horizontal">
+              <Path Data="{StaticResource IconLink}" Fill="{DynamicResource Accent}" Stretch="Uniform" Width="15" Height="15" Margin="0,0,8,0" />
+              <TextBlock Text="Проверить связь" />
+            </StackPanel>
+          </Button>
+          <StackPanel x:Name="CheckResult" Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center" Visibility="Collapsed">
+            <Path x:Name="CheckIcon" Stretch="Uniform" Width="15" Height="15" Margin="0,0,6,0" />
+            <TextBlock x:Name="CheckText" TextWrapping="Wrap" MaxWidth="250" FontSize="12.5" VerticalAlignment="Center" />
+          </StackPanel>
+        </StackPanel>
+
+        <Border Height="1" Background="{DynamicResource Line}" Margin="0,18,0,18" />
+
+        <TextBlock Text="ПОВЕДЕНИЕ" Style="{StaticResource Section}" />
+        <CheckBox x:Name="Autostart" Style="{StaticResource Toggle}">
+          <StackPanel>
+            <TextBlock Text="Запускать вместе с Windows" FontWeight="Medium" />
+            <TextBlock Text="Значок сам появится в трее после входа" Foreground="{DynamicResource Muted}" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap" />
+          </StackPanel>
+        </CheckBox>
+        <CheckBox x:Name="Notifications" Style="{StaticResource Toggle}">
+          <StackPanel>
+            <TextBlock Text="Уведомления" FontWeight="Medium" />
+            <TextBlock Text="Сообщать о новых записях с других устройств" Foreground="{DynamicResource Muted}" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap" />
+          </StackPanel>
+        </CheckBox>
+        <CheckBox x:Name="AutoCopy" Style="{StaticResource Toggle}">
+          <StackPanel>
+            <TextBlock Text="Сразу копировать текст" FontWeight="Medium" />
+            <TextBlock Text="Текст и ссылки с других устройств сразу в буфере обмена" Foreground="{DynamicResource Muted}" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap" />
+          </StackPanel>
+        </CheckBox>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,22,0,0">
+          <Button Content="Отмена" Style="{StaticResource GhostButton}" Margin="0,0,8,0" IsCancel="True" Click="OnCancel" />
+          <Button Content="Сохранить" Style="{StaticResource PrimaryButton}" IsDefault="True" Click="OnSave" MinWidth="130" />
+        </StackPanel>
       </StackPanel>
-    </Grid>
-  </StackPanel>
+    </StackPanel>
+  </Border>
 </Window>

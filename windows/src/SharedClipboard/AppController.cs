@@ -172,12 +172,10 @@ sealed class AppController(Dispatcher ui) : IDisposable
     void UpdateStatus()
     {
         var state = Settings.IsConfigured ? _hub.State : HubState.NotConfigured;
-        var devices = _hub.Devices.Where(d => d != Settings.DeviceName).ToList();
-        _flyout.UpdateHeader(state, devices, _hub.LastError);
+        _flyout.UpdateConnection(state, _hub.LastError);
         var tip = state switch
         {
-            HubState.Online => devices.Count > 0 ? "Общий буфер — онлайн: " + string.Join(", ", devices) : "Общий буфер — онлайн",
-            HubState.Connecting => "Общий буфер — подключение…",
+            HubState.Online or HubState.Connecting => "Общий буфер",
             HubState.AuthFailed => "Общий буфер — неверный токен",
             HubState.NotConfigured => "Общий буфер — не настроено",
             _ => "Общий буфер — нет связи с роутером",

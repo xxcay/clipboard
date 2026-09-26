@@ -4,12 +4,13 @@
         x:ClassModifier="internal"
         xmlns:local="clr-namespace:SharedClipboard"
         Title="Общий буфер"
-        Width="400" Height="560"
+        Width="416" Height="620"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         ResizeMode="NoResize" ShowInTaskbar="False" Topmost="True"
         AllowDrop="True" UseLayoutRounding="True"
         FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13"
         Foreground="{DynamicResource Fg}"
+        TextOptions.TextFormattingMode="Display"
         Deactivated="OnDeactivated"
         PreviewKeyDown="OnKeyDown"
         DragEnter="OnDragOver" DragOver="OnDragOver" DragLeave="OnDragLeave" Drop="OnDrop">
@@ -18,15 +19,16 @@
     <local:BoolToVisibility x:Key="NotVis" Invert="True" />
 
     <ContextMenu x:Key="ItemMenu" x:Shared="False">
-      <MenuItem Header="Копировать" InputGestureText="Ctrl+C" Click="OnCopy" />
-      <MenuItem Header="{Binding PrimaryActionTip}" Click="OnOpen"
+      <MenuItem Header="Копировать" InputGestureText="Ctrl+C" Tag="{StaticResource IconCopy}" Click="OnCopy" />
+      <MenuItem Header="{Binding PrimaryActionTip}" InputGestureText="Enter" Tag="{StaticResource IconOpen}" Click="OnOpen"
                 Visibility="{Binding IsText, Converter={StaticResource NotVis}}" />
-      <MenuItem Header="Показать в папке" Click="OnShowInFolder"
+      <MenuItem Header="Показать в папке" Tag="{StaticResource IconFolder}" Click="OnShowInFolder"
                 Visibility="{Binding IsFile, Converter={StaticResource Vis}}" />
-      <MenuItem Header="Сохранить как…" Click="OnSaveAs"
+      <MenuItem Header="Сохранить как…" Tag="{StaticResource IconUpload}" Click="OnSaveAs"
                 Visibility="{Binding IsFile, Converter={StaticResource Vis}}" />
       <Separator />
-      <MenuItem Header="Удалить из общего буфера" InputGestureText="Del" Click="OnDelete" />
+      <MenuItem Header="Удалить" InputGestureText="Del" Tag="{StaticResource IconDelete}" Click="OnDelete"
+                Foreground="{DynamicResource Danger}" />
     </ContextMenu>
 
     <Style x:Key="ItemStyle" TargetType="ListBoxItem">
@@ -36,7 +38,7 @@
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="ListBoxItem">
-            <Border x:Name="b" Background="Transparent" CornerRadius="6" Padding="8,6" Margin="0,1">
+            <Border x:Name="b" Background="Transparent" CornerRadius="12" Padding="8" Margin="0,1">
               <ContentPresenter />
             </Border>
             <ControlTemplate.Triggers>
@@ -53,37 +55,45 @@
     </Style>
 
     <DataTemplate x:Key="ItemTemplate" DataType="{x:Type local:ItemViewModel}">
-      <Grid ToolTip="{Binding PrimaryActionTip}" ToolTipService.InitialShowDelay="1200">
+      <Grid>
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="40" />
+          <ColumnDefinition Width="44" />
           <ColumnDefinition Width="*" />
-          <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
-        <Border Width="40" Height="40" CornerRadius="5" Background="{DynamicResource Hover}" ClipToBounds="True">
-          <Grid>
-            <TextBlock Text="{Binding Glyph}" FontFamily="{StaticResource IconFont}" FontSize="18"
-                       Foreground="{DynamicResource Accent}"
-                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                       Visibility="{Binding HasThumbnail, Converter={StaticResource NotVis}}" />
-            <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"
-                   Visibility="{Binding HasThumbnail, Converter={StaticResource Vis}}" />
-          </Grid>
+
+        <!-- Tile: a photo preview or a type icon. -->
+        <Border Width="44" Height="44" CornerRadius="11" Background="{DynamicResource Tile}"
+                Visibility="{Binding HasThumbnail, Converter={StaticResource NotVis}}">
+          <Path Data="{Binding Icon}" Fill="{DynamicResource Accent}" Stretch="Uniform" Width="20" Height="20" />
         </Border>
-        <StackPanel Grid.Column="1" Margin="10,0,4,0" VerticalAlignment="Center">
-          <TextBlock Text="{Binding Title}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="36" />
-          <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-            <TextBlock Text="{Binding Subtitle}" Foreground="{DynamicResource Muted}" FontSize="11.5" />
-            <TextBlock Text="{Binding StatusText}" Foreground="{DynamicResource Accent}" FontSize="11.5" Margin="6,0,0,0" />
+        <Border Width="44" Height="44" CornerRadius="11"
+                Visibility="{Binding HasThumbnail, Converter={StaticResource Vis}}">
+          <Border.Background>
+            <ImageBrush ImageSource="{Binding Thumbnail}" Stretch="UniformToFill" />
+          </Border.Background>
+        </Border>
+
+        <StackPanel Grid.Column="1" Margin="12,0,4,0" VerticalAlignment="Center">
+          <TextBlock Text="{Binding Title}" FontSize="13.5" FontWeight="Medium" TextWrapping="Wrap"
+                     TextTrimming="CharacterEllipsis" MaxHeight="38" />
+          <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+            <TextBlock Text="{Binding Subtitle}" Foreground="{DynamicResource Muted}" FontSize="12" />
+            <TextBlock Text="{Binding StatusText}" Foreground="{DynamicResource Accent}" FontSize="12" Margin="6,0,0,0" />
           </StackPanel>
         </StackPanel>
-        <!-- Row buttons float over the text end, so they take no room when hidden. -->
-        <Border x:Name="Actions" Grid.Column="1" Grid.ColumnSpan="2" HorizontalAlignment="Right" VerticalAlignment="Center"
-                Background="{DynamicResource Bg}" CornerRadius="6" Padding="2" Visibility="Hidden">
+
+        <!-- Row actions float over the end of the text on hover. -->
+        <Border x:Name="Actions" Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center"
+                Background="{DynamicResource Bg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1"
+                CornerRadius="10" Padding="2" Visibility="Hidden">
+          <Border.Effect>
+            <DropShadowEffect Color="#7A3A10" BlurRadius="10" ShadowDepth="1" Opacity="0.12" />
+          </Border.Effect>
           <StackPanel Orientation="Horizontal">
-            <Button Style="{StaticResource IconButton}" Content="&#xE8C8;" ToolTip="Копировать" Click="OnCopy" />
-            <Button Style="{StaticResource IconButton}" Content="&#xE8A7;" ToolTip="{Binding PrimaryActionTip}" Click="OnOpen"
+            <Button Style="{StaticResource IconButton}" Tag="{StaticResource IconCopy}" ToolTip="Копировать" Click="OnCopy" />
+            <Button Style="{StaticResource IconButton}" Tag="{StaticResource IconOpen}" ToolTip="{Binding PrimaryActionTip}" Click="OnOpen"
                     Visibility="{Binding IsText, Converter={StaticResource NotVis}}" />
-            <Button Style="{StaticResource IconButton}" Content="&#xE74D;" ToolTip="Удалить" Click="OnDelete" />
+            <Button Style="{StaticResource IconButtonDanger}" Tag="{StaticResource IconDelete}" ToolTip="Удалить" Click="OnDelete" />
           </StackPanel>
         </Border>
       </Grid>
@@ -95,44 +105,69 @@
     </DataTemplate>
   </Window.Resources>
 
-  <Border Margin="12" CornerRadius="8" Background="{DynamicResource Bg}"
-          BorderBrush="{DynamicResource Line}" BorderThickness="1">
+  <Border Margin="18" CornerRadius="16" Background="{DynamicResource Bg}"
+          BorderBrush="{DynamicResource CardBorder}" BorderThickness="1">
     <Border.Effect>
-      <DropShadowEffect BlurRadius="18" ShadowDepth="3" Opacity="0.28" />
+      <DropShadowEffect Color="#7A3A10" BlurRadius="26" ShadowDepth="5" Opacity="0.18" />
     </Border.Effect>
     <Grid>
       <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
         <RowDefinition Height="Auto" />
         <RowDefinition Height="*" />
         <RowDefinition Height="Auto" />
       </Grid.RowDefinitions>
 
       <!-- Header -->
-      <Grid Margin="14,10,8,6">
+      <Grid Margin="16,16,12,10">
         <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
           <ColumnDefinition Width="*" />
           <ColumnDefinition Width="Auto" />
-          <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
-        <StackPanel VerticalAlignment="Center">
-          <TextBlock Text="Общий буфер" FontSize="15" FontWeight="SemiBold" />
-          <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
-            <Ellipse x:Name="StatusDot" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center"
-                     Fill="{DynamicResource Muted}" />
-            <TextBlock x:Name="StatusText" Foreground="{DynamicResource Muted}" FontSize="12"
-                       TextTrimming="CharacterEllipsis" MaxWidth="260" />
-          </StackPanel>
+        <Border Width="36" Height="36" CornerRadius="11" Background="{DynamicResource AccentGradient}">
+          <Border.Effect>
+            <DropShadowEffect Color="#FF5A1F" BlurRadius="10" ShadowDepth="2" Opacity="0.3" />
+          </Border.Effect>
+          <Path Data="{StaticResource IconClipboardSync}" Fill="White" Stretch="Uniform" Width="18" Height="18" />
+        </Border>
+        <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+          <TextBlock Text="Общий буфер" FontFamily="{StaticResource DisplayFont}" FontSize="16.5" FontWeight="SemiBold" />
+          <TextBlock x:Name="CountText" Foreground="{DynamicResource Muted}" FontSize="12" Margin="0,1,0,0" />
         </StackPanel>
-        <Button Grid.Column="1" Style="{StaticResource IconButton}" Content="&#xE77F;"
-                ToolTip="Отправить то, что сейчас в буфере обмена (Ctrl+V)" Click="OnSendClipboard" />
-        <Button Grid.Column="2" Style="{StaticResource IconButton}" Content="&#xE713;"
-                ToolTip="Настройки" Click="OnSettings" />
+        <Button Grid.Column="2" Style="{StaticResource IconButton}" Tag="{StaticResource IconSettings}"
+                ToolTip="Настройки" Click="OnSettings" VerticalAlignment="Center" />
       </Grid>
 
+      <!-- Filters -->
+      <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="16,0,16,10">
+        <RadioButton x:Name="ChipAll" Style="{StaticResource Chip}" Content="Все" IsChecked="True" Checked="OnFilter" />
+        <RadioButton x:Name="ChipFiles" Style="{StaticResource Chip}" Content="Файлы" Checked="OnFilter" />
+        <RadioButton x:Name="ChipLinks" Style="{StaticResource Chip}" Content="Ссылки" Checked="OnFilter" />
+        <RadioButton x:Name="ChipText" Style="{StaticResource Chip}" Content="Текст" Checked="OnFilter" />
+      </StackPanel>
+
+      <!-- Shown only when something is wrong with the connection -->
+      <Border x:Name="Banner" Grid.Row="2" Margin="12,0,12,8" CornerRadius="10" Padding="12,9"
+              Background="{DynamicResource DangerSoft}" Visibility="Collapsed" Cursor="Hand"
+              MouseLeftButtonUp="OnBannerClick">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <Path Data="{StaticResource IconError}" Fill="{DynamicResource Danger}" Stretch="Uniform" Width="15" Height="15" />
+          <TextBlock x:Name="BannerText" Grid.Column="1" Margin="9,0,0,0" FontSize="12.5" TextWrapping="Wrap"
+                     Foreground="{DynamicResource Danger}" />
+        </Grid>
+      </Border>
+
       <!-- Items -->
-      <ListBox x:Name="List" Grid.Row="1" ItemsSource="{Binding Items}"
+      <ListBox x:Name="List" Grid.Row="3" ItemsSource="{Binding Items}"
                ItemTemplate="{StaticResource ItemTemplate}" ItemContainerStyle="{StaticResource ItemStyle}"
-               SelectionMode="Extended" BorderThickness="0" FocusVisualStyle="{x:Null}" Background="Transparent" Padding="6,0"
+               SelectionMode="Extended" BorderThickness="0" Background="Transparent" Padding="8,0"
+               FocusVisualStyle="{x:Null}"
                ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                VirtualizingPanel.ScrollUnit="Pixel"
                PreviewMouseLeftButtonDown="OnListMouseDown"
@@ -140,27 +175,64 @@
                PreviewMouseMove="OnListMouseMove"
                MouseDoubleClick="OnListDoubleClick" />
 
-      <TextBlock x:Name="EmptyText" Grid.Row="1" TextAlignment="Center" VerticalAlignment="Center"
-                 Foreground="{DynamicResource Muted}" TextWrapping="Wrap" Margin="30,0"
-                 Text="Пока пусто.&#x0a;Перетащите сюда файлы или нажмите Ctrl+V, чтобы отправить их на другие устройства." />
+      <StackPanel x:Name="EmptyState" Grid.Row="3" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="32,0,32,24">
+        <Border Width="72" Height="72" CornerRadius="36" Background="{DynamicResource Tile}" HorizontalAlignment="Center">
+          <Path Data="{StaticResource IconPaste}" Fill="{DynamicResource Accent}" Stretch="Uniform" Width="30" Height="30" />
+        </Border>
+        <TextBlock x:Name="EmptyTitle" Text="Здесь пока пусто" FontFamily="{StaticResource DisplayFont}" FontSize="15"
+                   FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,14,0,4" />
+        <TextBlock x:Name="EmptyHint" Foreground="{DynamicResource Muted}" TextAlignment="Center" TextWrapping="Wrap"
+                   Text="Скопируйте что-нибудь и нажмите Ctrl+V или перетащите файлы в это окно" />
+      </StackPanel>
 
-      <!-- Footer -->
-      <Border Grid.Row="2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource Line}" Padding="14,8">
-        <TextBlock x:Name="FooterText" Foreground="{DynamicResource Muted}" FontSize="12"
-                   TextTrimming="CharacterEllipsis" />
+      <!-- Toast -->
+      <Border x:Name="Toast" Grid.Row="3" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="16,0,16,10"
+              CornerRadius="18" Background="{DynamicResource ToastBg}" Padding="14,8" Visibility="Collapsed"
+              IsHitTestVisible="False">
+        <Border.Effect>
+          <DropShadowEffect BlurRadius="14" ShadowDepth="3" Opacity="0.25" />
+        </Border.Effect>
+        <StackPanel Orientation="Horizontal">
+          <Path x:Name="ToastIcon" Stretch="Uniform" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+          <TextBlock x:Name="ToastText" Foreground="White" FontSize="12.5" VerticalAlignment="Center"
+                     TextTrimming="CharacterEllipsis" MaxWidth="300" />
+        </StackPanel>
       </Border>
 
+      <!-- Footer -->
+      <StackPanel Grid.Row="4" Margin="14,6,14,14">
+        <Button Style="{StaticResource PrimaryButton}" Height="44" Click="OnSendClipboard" HorizontalContentAlignment="Stretch"
+                ToolTip="Отправить то, что сейчас скопировано: файлы, скриншот или текст">
+          <Grid>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+              <Path Data="{StaticResource IconUpload}" Fill="White" Stretch="Uniform" Width="15" Height="15" Margin="0,0,8,0" />
+              <TextBlock Text="Отправить из буфера" Foreground="White" FontSize="13.5" VerticalAlignment="Center" />
+            </StackPanel>
+            <Border HorizontalAlignment="Right" CornerRadius="6" Background="#33FFFFFF" Padding="7,2">
+              <TextBlock Text="Ctrl+V" Foreground="White" FontSize="11" FontWeight="Normal" />
+            </Border>
+          </Grid>
+        </Button>
+        <TextBlock Text="или перетащите файлы в это окно" Foreground="{DynamicResource Muted}" FontSize="11.5"
+                   HorizontalAlignment="Center" Margin="0,8,0,0" />
+      </StackPanel>
+
       <!-- Shown while files are dragged over the window -->
-      <Border x:Name="DropOverlay" Grid.RowSpan="3" CornerRadius="8" Visibility="Collapsed"
-              IsHitTestVisible="False" Background="{DynamicResource Bg}">
-        <Grid Margin="10">
-          <Rectangle RadiusX="8" RadiusY="8" Stroke="{DynamicResource Accent}" StrokeThickness="2"
-                     StrokeDashArray="4 3" Fill="{DynamicResource Selected}" />
+      <Border x:Name="DropOverlay" Grid.RowSpan="5" CornerRadius="16" Visibility="Collapsed"
+              IsHitTestVisible="False" Background="#F2FFFFFF">
+        <Grid Margin="12">
+          <Rectangle RadiusX="14" RadiusY="14" Stroke="{DynamicResource Accent}" StrokeThickness="2"
+                     StrokeDashArray="5 4" Fill="#0DFF6A1F" />
           <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-            <TextBlock Text="&#xE898;" FontFamily="{StaticResource IconFont}" FontSize="36"
-                       HorizontalAlignment="Center" Foreground="{DynamicResource Accent}" />
-            <TextBlock Text="Отпустите, чтобы отправить" FontSize="15" Margin="0,10,0,0"
-                       HorizontalAlignment="Center" />
+            <Border Width="76" Height="76" CornerRadius="38" Background="{DynamicResource AccentGradient}" HorizontalAlignment="Center">
+              <Border.Effect>
+                <DropShadowEffect Color="#FF5A1F" BlurRadius="18" ShadowDepth="3" Opacity="0.35" />
+              </Border.Effect>
+              <Path Data="{StaticResource IconUpload}" Fill="White" Stretch="Uniform" Width="30" Height="30" />
+            </Border>
+            <TextBlock Text="Отпустите, чтобы отправить" FontFamily="{StaticResource DisplayFont}" FontSize="16"
+                       FontWeight="SemiBold" Margin="0,16,0,4" HorizontalAlignment="Center" />
+            <TextBlock Text="файлы появятся на всех устройствах" Foreground="{DynamicResource Muted}" HorizontalAlignment="Center" />
           </StackPanel>
         </Grid>
       </Border>

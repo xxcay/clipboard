@@ -1,31 +1,45 @@
-"""Draws app.ico (a clipboard on a blue rounded square). Needs Pillow."""
+"""Draws app.ico: a white clipboard with sync arrows on an orange gradient. Needs Pillow."""
 import sys
 from PIL import Image, ImageDraw
 
 S = 1024  # draw large, then downscale for smooth edges
+ORANGE_TOP = (255, 146, 64)
+ORANGE_BOTTOM = (255, 84, 24)
+
+
+def gradient(size):
+    g = Image.new("RGBA", (size, size))
+    px = g.load()
+    for y in range(size):
+        for x in range(size):
+            t = (x + y) / (2 * size - 2)
+            px[x, y] = tuple(int(a + (b - a) * t) for a, b in zip(ORANGE_TOP, ORANGE_BOTTOM)) + (255,)
+    return g
 
 
 def draw() -> Image.Image:
+    mask = Image.new("L", (S, S), 0)
+    ImageDraw.Draw(mask).rounded_rectangle((24, 24, S - 24, S - 24), radius=240, fill=255)
     img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    img.paste(gradient(S), (0, 0), mask)
     d = ImageDraw.Draw(img)
-    d.rounded_rectangle((32, 32, S - 32, S - 32), radius=220, fill=(37, 99, 235, 255))
-    # clipboard board
-    d.rounded_rectangle((250, 215, 774, 850), radius=70, fill=(255, 255, 255, 255))
-    # clip on top
-    d.rounded_rectangle((372, 150, 652, 300), radius=48, fill=(255, 255, 255, 255))
-    d.rounded_rectangle((410, 188, 614, 262), radius=30, fill=(37, 99, 235, 255))
+    white = (255, 255, 255, 255)
+    accent = ORANGE_BOTTOM + (255,)
+    # clipboard board and clip
+    d.rounded_rectangle((262, 222, 762, 842), radius=84, fill=white)
+    d.rounded_rectangle((382, 160, 642, 300), radius=52, fill=white)
+    d.rounded_rectangle((420, 196, 604, 264), radius=30, fill=(255, 120, 44, 255))
     # two-way arrows: sync between devices
-    blue = (37, 99, 235, 255)
-    d.rounded_rectangle((340, 420, 640, 470), radius=25, fill=blue)
-    d.polygon([(620, 370), (700, 445), (620, 520)], fill=blue)
-    d.rounded_rectangle((384, 600, 684, 650), radius=25, fill=blue)
-    d.polygon([(404, 550), (324, 625), (404, 700)], fill=blue)
+    d.rounded_rectangle((352, 430, 632, 482), radius=26, fill=accent)
+    d.polygon([(612, 380), (692, 456), (612, 532)], fill=accent)
+    d.rounded_rectangle((392, 600, 672, 652), radius=26, fill=accent)
+    d.polygon([(412, 550), (332, 626), (412, 702)], fill=accent)
     return img
 
 
 if __name__ == "__main__":
     out = sys.argv[1] if len(sys.argv) > 1 else "app.ico"
-    big = draw()
-    sizes = [16, 20, 24, 32, 40, 48, 64, 128, 256]
-    big.resize((256, 256), Image.LANCZOS).save(out, sizes=[(s, s) for s in sizes])
-    big.resize((256, 256), Image.LANCZOS).save(out.replace(".ico", "-preview.png"))
+    big = draw().resize((256, 256), Image.LANCZOS)
+    big.save(out, sizes=[(s, s) for s in [16, 20, 24, 32, 40, 48, 64, 128, 256]])
+    if len(sys.argv) > 2:
+        draw().resize((int(sys.argv[2]), int(sys.argv[2])), Image.LANCZOS).save(out.replace(".ico", f"-{sys.argv[2]}.png"))

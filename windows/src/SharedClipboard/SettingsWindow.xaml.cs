@@ -53,16 +53,31 @@ partial class SettingsWindow : Window
         CheckButton.IsEnabled = false;
         ShowResult("Проверяю…", "Muted");
         var error = await HubClient.CheckAsync(Collect());
-        ShowResult(error ?? "Всё в порядке: роутер отвечает, токен подходит.", error == null ? "Ok" : "Danger");
+        ShowResult(error ?? "Всё в порядке", error == null ? "Ok" : "Danger");
         CheckButton.IsEnabled = true;
     }
 
     void ShowResult(string text, string brush)
     {
-        CheckResult.Text = text;
-        CheckResult.Foreground = (Brush)FindResource(brush);
+        CheckText.Text = text;
+        CheckText.Foreground = (Brush)FindResource(brush);
+        CheckIcon.Fill = (Brush)FindResource(brush);
+        CheckIcon.Data = (Geometry)FindResource(brush switch
+        {
+            "Ok" => "IconCheck",
+            "Danger" => "IconError",
+            _ => "IconLink",
+        });
         CheckResult.Visibility = Visibility.Visible;
     }
+
+    void OnDrag(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (e.ButtonState == System.Windows.Input.MouseButtonState.Pressed)
+            DragMove();
+    }
+
+    void OnCancel(object sender, RoutedEventArgs e) => DialogResult = false;
 
     void OnSave(object sender, RoutedEventArgs e)
     {

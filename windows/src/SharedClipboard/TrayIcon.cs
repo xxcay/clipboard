@@ -1,4 +1,5 @@
 using SharedClipboard.Core;
+using Drawing = System.Drawing;
 using WinForms = System.Windows.Forms;
 
 namespace SharedClipboard;
@@ -11,7 +12,14 @@ sealed class TrayIcon : IDisposable
 
     public TrayIcon(AppController app)
     {
-        var menu = new WinForms.ContextMenuStrip();
+        var menu = new WinForms.ContextMenuStrip
+        {
+            Renderer = new MenuRenderer(),
+            Font = new Drawing.Font("Segoe UI", 9.75f),
+            Padding = new WinForms.Padding(4),
+            ShowImageMargin = false,
+            ShowCheckMargin = true,
+        };
         menu.Items.Add("Открыть панель", null, (_, _) => app.ShowFlyout());
         menu.Items.Add("Отправить буфер обмена", null, (_, _) => app.SendClipboard());
         menu.Items.Add(new WinForms.ToolStripSeparator());
@@ -22,6 +30,8 @@ sealed class TrayIcon : IDisposable
         menu.Items.Add(new WinForms.ToolStripSeparator());
         menu.Items.Add("Выход", null, (_, _) => app.Exit());
         menu.Opening += (_, _) => _autostart.Checked = app.Settings.Autostart;
+        foreach (WinForms.ToolStripItem item in menu.Items)
+            item.Padding = new WinForms.Padding(4, 5, 4, 5);
 
         _icon = new WinForms.NotifyIcon
         {
@@ -52,5 +62,39 @@ sealed class TrayIcon : IDisposable
     {
         _icon.Visible = false;
         _icon.Dispose();
+    }
+
+    /// <summary>White + orange look for the tray menu.</summary>
+    sealed class MenuRenderer() : WinForms.ToolStripProfessionalRenderer(new Palette())
+    {
+        protected override void OnRenderItemText(WinForms.ToolStripItemTextRenderEventArgs e)
+        {
+            e.TextColor = Drawing.Color.FromArgb(28, 25, 23);
+            base.OnRenderItemText(e);
+        }
+
+        sealed class Palette : WinForms.ProfessionalColorTable
+        {
+            static readonly Drawing.Color White = Drawing.Color.White;
+            static readonly Drawing.Color Hover = Drawing.Color.FromArgb(255, 241, 231);
+            static readonly Drawing.Color Border = Drawing.Color.FromArgb(240, 232, 226);
+            static readonly Drawing.Color Orange = Drawing.Color.FromArgb(255, 106, 31);
+
+            public override Drawing.Color ToolStripDropDownBackground => White;
+            public override Drawing.Color MenuBorder => Border;
+            public override Drawing.Color MenuItemBorder => Hover;
+            public override Drawing.Color MenuItemSelected => Hover;
+            public override Drawing.Color MenuItemSelectedGradientBegin => Hover;
+            public override Drawing.Color MenuItemSelectedGradientEnd => Hover;
+            public override Drawing.Color ImageMarginGradientBegin => White;
+            public override Drawing.Color ImageMarginGradientMiddle => White;
+            public override Drawing.Color ImageMarginGradientEnd => White;
+            public override Drawing.Color SeparatorDark => Border;
+            public override Drawing.Color SeparatorLight => White;
+            public override Drawing.Color CheckBackground => Hover;
+            public override Drawing.Color CheckSelectedBackground => Hover;
+            public override Drawing.Color CheckPressedBackground => Hover;
+            public override Drawing.Color ButtonSelectedBorder => Orange;
+        }
     }
 }
