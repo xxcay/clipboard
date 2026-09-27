@@ -50,6 +50,22 @@ $UI long "Новая заметка" && shot 06-sheet 2
 adb shell input keyevent KEYCODE_BACK
 sleep 1
 
+# Deleted on the PC -> gone on the phone (app open).
+del_id() { curl -s -H "$H" http://127.0.0.1:8765/api/items | python3 -c "import json,sys; print(next(i['id'] for i in json.load(sys.stdin) if '$1' in i.get('text','') or '$1' in (i.get('file') or {}).get('name','')))"; }
+curl -s -X DELETE -H "$H" "http://127.0.0.1:8765/api/items/$(del_id 'Новая заметка')"
+sleep 2
+if python3 android/tools/ui.py has "Новая заметка" >/dev/null; then echo "DELETE NOT SYNCED (open app)"; fail=1; else echo "delete sync (open app): OK"; fi
+
+# Deleted while the app is in the background -> gone when it comes back.
+adb shell input keyevent KEYCODE_HOME
+sleep 1
+curl -s -X DELETE -H "$H" "http://127.0.0.1:8765/api/items/$(del_id 'Адрес доставки')"
+sleep 1
+adb shell am start -n $PKG/.MainActivity
+sleep 3
+if python3 android/tools/ui.py has "Адрес доставки" >/dev/null; then echo "DELETE NOT SYNCED (background)"; fail=1; else echo "delete sync (background): OK"; fi
+shot 06b-after-delete 1
+
 $UI tap "Файлы" && shot 07-files 3
 $UI tap "Все"
 

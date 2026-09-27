@@ -31,6 +31,10 @@ def find(label):
 
 def main():
     cmd, label = sys.argv[1], sys.argv[2]
+    if cmd == "has":
+        found = find(label) is not None
+        print(f"ui.py: '{label}' {'is' if found else 'is not'} on screen")
+        sys.exit(0 if found else 1)
     for attempt in range(6):
         pos = find(label)
         if pos:
