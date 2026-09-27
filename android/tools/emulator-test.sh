@@ -13,6 +13,7 @@ H='Authorization: Bearer tok'
 fail=0
 
 shot() { sleep "${2:-2}"; adb exec-out screencap -p > "$OUT/$1.png"; echo "shot $1"; }
+dismiss() { python3 android/tools/ui.py tap "Wait" >/dev/null 2>&1 || true; }
 post() { curl -s -H "$H" -H "X-Device: $1" --data-binary "$2" http://127.0.0.1:8765/api/clip > /dev/null; }
 
 (cd server && go build -o /tmp/clipd .)
@@ -25,6 +26,12 @@ curl -s -H "$H" -H "X-Device: %D0%9F%D0%9A" -T /tmp/IMG_2031.png "http://127.0.0
 head -c 2500000 /dev/urandom > /tmp/deck.pptx
 curl -s -H "$H" -H "X-Device: %D0%9F%D0%9A" -T /tmp/deck.pptx "http://127.0.0.1:8765/api/files?name=%D0%9F%D1%80%D0%B5%D0%B7%D0%B5%D0%BD%D1%82%D0%B0%D1%86%D0%B8%D1%8F.pptx" > /dev/null
 
+# The slow CI emulator sometimes shows "Launcher isn't responding"; keep such dialogs away.
+adb shell settings put global hide_error_dialogs 1
+adb shell settings put global anr_show_background 0
+adb shell am force-stop com.google.android.apps.nexuslauncher
+python3 android/tools/ui.py tap "Wait" >/dev/null 2>&1 || true
+
 adb install -r "$APK" || exit 1
 adb shell pm grant $PKG android.permission.POST_NOTIFICATIONS
 adb logcat -c
@@ -35,6 +42,7 @@ shot 01-first-run 6
 adb shell am start -a android.intent.action.VIEW \
   -d "'sharedclipboard://setup?server=http%3A%2F%2F10.0.2.2%3A8765&token=tok&name=%D0%A2%D0%B5%D0%BB%D0%B5%D1%84%D0%BE%D0%BD'"
 shot 02-setup-link 3
+dismiss
 $UI tap-scroll "Проверить связь" && shot 03-check 3
 $UI tap-scroll "Сохранить"
 shot 04-main 6
