@@ -90,7 +90,7 @@ class ClipboardWidget : GlanceAppWidget() {
         ) {
             Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 // Logo and title open the app too.
-                Row(GlanceModifier.defaultWeight().clickable(actionStartActivity<MainActivity>()), verticalAlignment = Alignment.CenterVertically) {
+                Row(GlanceModifier.defaultWeight().clickable(actionStartActivity(Intent(context, MainActivity::class.java))), verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     GlanceModifier.size(34.dp).background(ImageProvider(R.drawable.widget_logo_bg)),
                     contentAlignment = Alignment.Center,
@@ -111,7 +111,7 @@ class ClipboardWidget : GlanceAppWidget() {
                     GlanceModifier
                         .size(34.dp)
                         .background(ImageProvider(R.drawable.widget_soft_bg))
-                        .clickable(actionStartActivity<MainActivity>()),
+                        .clickable(actionStartActivity(Intent(context, MainActivity::class.java))),
                     contentAlignment = Alignment.Center,
                 ) {
                     Image(ImageProvider(R.drawable.ic_open), "Открыть приложение", GlanceModifier.size(18.dp), colorFilter = ColorFilter.tint(Orange))
