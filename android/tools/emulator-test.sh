@@ -95,6 +95,6 @@ echo "--- clipd log"; cat /tmp/clipd.log
 echo "--- crashes"
 # The crash buffer holds only real crashes (other logs mention AndroidRuntime too).
 adb logcat -d -b crash | grep -A 30 "$PKG" | tee $OUT/crash.txt
-if [ -s $OUT/crash.txt ]; then echo "APP CRASHED"; fail=1; fi
+if [ -s $OUT/crash.txt ]; then echo "APP CRASHED"; fail=1; else rm -f $OUT/crash.txt; fi
 adb logcat -d | grep -iE "$PKG|clipboard" | tail -60 > $OUT/logcat.txt
 exit $fail
