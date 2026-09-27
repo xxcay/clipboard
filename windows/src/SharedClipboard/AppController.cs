@@ -23,6 +23,7 @@ sealed class AppController(Dispatcher ui) : IDisposable
     FlyoutWindow _flyout = null!;
     SettingsWindow? _settingsWindow;
     int _unread;
+    Hotkey? _hotkey;
     readonly Updater _updater = new(new HttpClient { Timeout = TimeSpan.FromMinutes(10) });
     readonly DispatcherTimer _updateTimer = new() { Interval = TimeSpan.FromHours(6) };
     bool _updateNotified;
@@ -47,6 +48,8 @@ sealed class AppController(Dispatcher ui) : IDisposable
         _cache = new FileCache(Path.Combine(DataDir, "cache"), _hub);
         _flyout = new FlyoutWindow(this);
         _tray = new TrayIcon(this);
+        _hotkey = new Hotkey(SendClipboard);
+        ApplyHotkey();
 
         _hub.StateChanged += _ => ui.BeginInvoke(UpdateStatus);
         _hub.DevicesChanged += _ => ui.BeginInvoke(UpdateStatus);
@@ -83,6 +86,7 @@ sealed class AppController(Dispatcher ui) : IDisposable
 
     public void Dispose()
     {
+        _hotkey?.Dispose();
         _hub.Dispose();
         _tray?.Dispose();
     }
@@ -263,6 +267,8 @@ sealed class AppController(Dispatcher ui) : IDisposable
         }
         _flyout.Hide();
         _settingsWindow = new SettingsWindow(Settings, this);
+        // Off while settings are open, so the shortcut recorder can see the keys.
+        _hotkey?.Clear();
         try
         {
             if (_settingsWindow.ShowDialog() != true)
@@ -272,6 +278,7 @@ sealed class AppController(Dispatcher ui) : IDisposable
         finally
         {
             _settingsWindow = null;
+            ApplyHotkey();
         }
         try
         {
@@ -287,6 +294,15 @@ sealed class AppController(Dispatcher ui) : IDisposable
         UpdateStatus();
         ShowFlyout();
     }
+
+    void ApplyHotkey()
+    {
+        if (_hotkey != null && !_hotkey.Set(Settings.Hotkey))
+            _tray.Notify("Горячая клавиша занята",
+                $"{Hotkey.Display(Settings.Hotkey)} уже использует другая программа. Выберите другую в настройках.", error: true);
+    }
+
+    public string HotkeyText => Hotkey.Display(Settings.Hotkey);
 
     public void SetAutostart(bool enabled)
     {
@@ -412,8 +428,9 @@ sealed class AppController(Dispatcher ui) : IDisposable
     {
         try
         {
-            await _hub.SendTextAsync(text);
-            Status("Текст отправлен");
+            var item = await _hub.SendTextAsync(text);
+            var shown = text.Trim().ReplaceLineEndings(" ");
+            Status(item.IsUrl ? $"Ссылка отправлена: {Shorten(shown, 60)}" : $"Текст отправлен: {Shorten(shown, 60)}");
         }
         catch (ClipException e)
         {
@@ -643,6 +660,8 @@ sealed class AppController(Dispatcher ui) : IDisposable
             Status($"Не удалось открыть: {e.Message}", true);
         }
     }
+
+    static string Shorten(string s, int max) => s.Length > max ? s[..max] + "…" : s;
 
     static void TryDelete(string path)
     {

@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media;
 using SharedClipboard.Core;
 
@@ -7,6 +8,7 @@ namespace SharedClipboard;
 partial class SettingsWindow : Window
 {
     readonly AppController _app;
+    string _hotkey;
 
     public SettingsWindow(AppSettings current, AppController app)
     {
@@ -23,6 +25,10 @@ partial class SettingsWindow : Window
         Autostart.IsChecked = current.Autostart;
         Notifications.IsChecked = current.Notifications;
         AutoCopy.IsChecked = current.AutoCopyText;
+        _hotkey = current.Hotkey;
+        // Fit small screens: the content scrolls, the title bar stays.
+        Scroll.MaxHeight = Math.Max(300, SystemParameters.WorkArea.Height - 170);
+        HotkeyBox.Text = Hotkey.Display(_hotkey);
         Result = current.Clone();
         Loaded += (_, _) => (string.IsNullOrEmpty(current.Token) ? Token : Address).Focus();
     }
@@ -40,6 +46,7 @@ partial class SettingsWindow : Window
         s.Autostart = Autostart.IsChecked == true;
         s.Notifications = Notifications.IsChecked == true;
         s.AutoCopyText = AutoCopy.IsChecked == true;
+        s.Hotkey = _hotkey;
         return s;
     }
 
@@ -76,6 +83,37 @@ partial class SettingsWindow : Window
             _ => "IconLink",
         });
         CheckResult.Visibility = Visibility.Visible;
+    }
+
+    // ---- Shortcut recorder ----
+
+    void OnHotkeyFocus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e) =>
+        HotkeyBox.Text = "Нажмите сочетание…";
+
+    void OnHotkeyBlur(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e) =>
+        HotkeyBox.Text = Hotkey.Display(_hotkey);
+
+    void OnHotkeyKey(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        e.Handled = true;
+        var key = e.Key == System.Windows.Input.Key.System ? e.SystemKey : e.Key;
+        if (key == System.Windows.Input.Key.Escape || key == System.Windows.Input.Key.Tab)
+        {
+            Keyboard.ClearFocus();
+            return;
+        }
+        var text = Hotkey.Format(Keyboard.Modifiers, key);
+        if (text == null)
+            return; // modifiers only so far, or a plain letter
+        _hotkey = text;
+        HotkeyBox.Text = Hotkey.Display(text);
+        HotkeyHint.Text = "Сохраните настройки, чтобы сочетание заработало.";
+    }
+
+    void OnHotkeyOff(object sender, RoutedEventArgs e)
+    {
+        _hotkey = "";
+        HotkeyBox.Text = Hotkey.Display("");
     }
 
     void OnUpdateStateChanged() => ShowUpdateState(null);

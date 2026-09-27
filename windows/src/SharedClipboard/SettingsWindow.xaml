@@ -55,6 +55,7 @@
                 VerticalAlignment="Top" Click="OnCancel" ToolTip="Закрыть" />
       </Grid>
 
+      <ScrollViewer x:Name="Scroll" VerticalScrollBarVisibility="Auto">
       <StackPanel Margin="24,14,24,22">
         <TextBlock Text="ПОДКЛЮЧЕНИЕ" Style="{StaticResource Section}" />
 
@@ -108,6 +109,22 @@
 
         <Border Height="1" Background="{DynamicResource Line}" Margin="0,14,0,18" />
 
+        <TextBlock Text="ГОРЯЧАЯ КЛАВИША" Style="{StaticResource Section}" />
+        <TextBlock Text="Отправить буфер обмена из любой программы" Style="{StaticResource Label}" />
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <TextBox x:Name="HotkeyBox" IsReadOnly="True" IsReadOnlyCaretVisible="False" Cursor="Hand"
+                   FontWeight="SemiBold" PreviewKeyDown="OnHotkeyKey" GotKeyboardFocus="OnHotkeyFocus" LostKeyboardFocus="OnHotkeyBlur" />
+          <Button Grid.Column="1" Style="{StaticResource GhostButton}" Content="Выключить" Margin="8,0,0,0" Click="OnHotkeyOff" />
+        </Grid>
+        <TextBlock x:Name="HotkeyHint" Style="{StaticResource Hint}"
+                   Text="Нажмите на поле и затем нужное сочетание, например Ctrl + Alt + C. Скопировали ссылку — нажали — она на телефоне." />
+
+        <Border Height="1" Background="{DynamicResource Line}" Margin="0,4,0,18" />
+
         <TextBlock Text="ОБНОВЛЕНИЯ" Style="{StaticResource Section}" />
         <Grid>
           <Grid.ColumnDefinitions>
@@ -130,6 +147,7 @@
           <Button Content="Сохранить" Style="{StaticResource PrimaryButton}" IsDefault="True" Click="OnSave" MinWidth="130" />
         </StackPanel>
       </StackPanel>
+      </ScrollViewer>
     </StackPanel>
   </Border>
 </Window>

@@ -21,7 +21,8 @@ sealed class TrayIcon : IDisposable
             ShowCheckMargin = true,
         };
         menu.Items.Add("Открыть панель", null, (_, _) => app.ShowFlyout());
-        menu.Items.Add("Отправить буфер обмена", null, (_, _) => app.SendClipboard());
+        var send = new WinForms.ToolStripMenuItem("Отправить буфер обмена", null, (_, _) => app.SendClipboard());
+        menu.Items.Add(send);
         menu.Items.Add(new WinForms.ToolStripSeparator());
         menu.Items.Add("Настройки…", null, (_, _) => app.ShowSettings());
         _autostart = new WinForms.ToolStripMenuItem("Запускать вместе с Windows") { CheckOnClick = true };
@@ -39,7 +40,11 @@ sealed class TrayIcon : IDisposable
         });
         menu.Items.Add(new WinForms.ToolStripSeparator());
         menu.Items.Add("Выход", null, (_, _) => app.Exit());
-        menu.Opening += (_, _) => _autostart.Checked = app.Settings.Autostart;
+        menu.Opening += (_, _) =>
+        {
+            _autostart.Checked = app.Settings.Autostart;
+            send.ShortcutKeyDisplayString = string.IsNullOrEmpty(app.Settings.Hotkey) ? "" : app.HotkeyText;
+        };
         foreach (WinForms.ToolStripItem item in menu.Items)
             item.Padding = new WinForms.Padding(4, 5, 4, 5);
 

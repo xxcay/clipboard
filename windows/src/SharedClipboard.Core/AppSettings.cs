@@ -13,6 +13,8 @@ public sealed class AppSettings
     public bool Notifications { get; set; } = true;
     /// <summary>Put incoming text and links into the local clipboard right away.</summary>
     public bool AutoCopyText { get; set; }
+    /// <summary>Global shortcut that sends the clipboard, e.g. "Ctrl+Alt+C"; empty = off.</summary>
+    public string Hotkey { get; set; } = "Ctrl+Alt+C";
 
     public bool IsConfigured => !string.IsNullOrWhiteSpace(Token) && ServerAddress.TryParse(ServerUrl, out _, out _);
 
