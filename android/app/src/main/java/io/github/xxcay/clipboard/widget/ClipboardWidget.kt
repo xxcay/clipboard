@@ -60,6 +60,7 @@ private val Ink = ColorProvider(Color(0xFF1C1917))
 private val Muted = ColorProvider(Color(0xFF8C837D))
 private val Orange = ColorProvider(Color(0xFFFF6A1F))
 private val White = ColorProvider(Color.White)
+private val Red = ColorProvider(Color(0xFFE5484D))
 
 /** Home screen widget: "Send clipboard" button and the latest items. */
 class ClipboardWidget : GlanceAppWidget() {
@@ -177,12 +178,16 @@ class ClipboardWidget : GlanceAppWidget() {
                     Text(item.title, style = TextStyle(color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Medium), maxLines = 1)
                     Text(Format.meta(item, mine), style = TextStyle(color = Muted, fontSize = 11.sp), maxLines = 1)
                 }
-                Image(
-                    ImageProvider(if (item.isText) R.drawable.ic_copy else R.drawable.ic_open),
-                    null,
-                    GlanceModifier.size(16.dp),
-                    colorFilter = ColorFilter.tint(Muted),
-                )
+                Spacer(GlanceModifier.width(6.dp))
+                Box(
+                    GlanceModifier
+                        .size(32.dp)
+                        .background(ImageProvider(R.drawable.widget_delete_bg))
+                        .clickable(actionRunCallback<DeleteAction>(actionParametersOf(DeleteAction.IdKey to item.id))),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Image(ImageProvider(R.drawable.ic_delete), "Удалить", GlanceModifier.size(17.dp), colorFilter = ColorFilter.tint(Red))
+                }
             }
         }
     }
@@ -241,5 +246,27 @@ class RefreshAction : ActionCallback {
                 Toast.makeText(context, e.message ?: "Нет связи с роутером", Toast.LENGTH_SHORT).show()
             }
         }
+    }
+}
+
+/** Trash button in a widget row: delete the item everywhere. */
+class DeleteAction : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        val id = parameters[IdKey] ?: return
+        val app = context.app
+        try {
+            app.api.delete(id)
+            // Redraw right away; the hub (if connected) sends the same change.
+            val current = app.hub.items.value.filterNot { it.id == id }
+            ClipboardWidget.publish(context, current.ifEmpty { app.api.list().reversed() })
+        } catch (e: Exception) {
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, e.message ?: "Нет связи с роутером", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    companion object {
+        val IdKey = ActionParameters.Key<String>("id")
     }
 }

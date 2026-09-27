@@ -227,16 +227,27 @@ fun MainScreen(onSettings: () -> Unit) {
             } else {
                 items(filtered, key = { it.id }) { item ->
                     val file = if (item.id in ready) app.cache.fileFor(item) else null
-                    ItemCard(
-                        item = item,
-                        mine = app.settings.isMine(item),
-                        file = file,
-                        progress = progress[item.id],
-                        onClick = { primary(item) },
-                        onLongClick = { sheetItemId = item.id },
-                        onAction = { primary(item) },
-                        modifier = Modifier.animateItem(),
-                    )
+                    Box(Modifier.animateItem().padding(horizontal = 20.dp, vertical = 5.dp)) {
+                        SwipeToDelete(onDelete = {
+                            try {
+                                app.api.delete(item.id)
+                                true
+                            } catch (e: ClipException) {
+                                toast(e.message.orEmpty(), true)
+                                false
+                            }
+                        }) {
+                            ItemCard(
+                                item = item,
+                                mine = app.settings.isMine(item),
+                                file = file,
+                                progress = progress[item.id],
+                                onClick = { primary(item) },
+                                onLongClick = { sheetItemId = item.id },
+                                onAction = { primary(item) },
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -482,7 +493,6 @@ private fun ItemCard(
         color = Color.White,
         border = BorderStroke(1.dp, Palette.Line),
         modifier = modifier
-            .padding(horizontal = 20.dp, vertical = 5.dp)
             .fillMaxWidth()
             .clip(shape)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),

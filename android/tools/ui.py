@@ -31,6 +31,12 @@ def find(label):
 
 def main():
     cmd, label = sys.argv[1], sys.argv[2]
+    if cmd == "where":
+        pos = find(label)
+        if not pos:
+            sys.exit(1)
+        print(pos[0] - 250, pos[1])  # start left of the text, on the card
+        return
     if cmd == "has":
         found = find(label) is not None
         print(f"ui.py: '{label}' {'is' if found else 'is not'} on screen")

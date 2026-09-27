@@ -66,6 +66,23 @@ sleep 3
 if python3 android/tools/ui.py has "Адрес доставки" >/dev/null; then echo "DELETE NOT SYNCED (background)"; fail=1; else echo "delete sync (background): OK"; fi
 shot 06b-after-delete 1
 
+# Swipe a card right to delete it (hold the finger to see the trash can).
+pos=$(python3 android/tools/ui.py where "youtu.be") && read X Y <<< "$pos"
+if [ -n "${X:-}" ]; then
+  adb shell input motionevent DOWN $X $Y
+  for dx in 60 140 220; do adb shell input motionevent MOVE $((X + dx)) $Y; done
+  shot 06c-swipe-half 0.3
+  for dx in 330 450 560; do adb shell input motionevent MOVE $((X + dx)) $Y; done
+  shot 06d-swipe-armed 0.4
+  adb shell input motionevent UP $((X + 560)) $Y
+  sleep 3
+  shot 06e-swiped 0
+  curl -s -H "$H" http://127.0.0.1:8765/api/items | grep -q 'dQw4w9WgXcQ' \
+    && { echo "SWIPE DELETE FAILED"; fail=1; } || echo "swipe delete: OK"
+else
+  echo "SWIPE: item not found"; fail=1
+fi
+
 $UI tap "Файлы" && shot 07-files 3
 $UI tap "Все"
 
