@@ -6,9 +6,16 @@ namespace SharedClipboard;
 
 partial class SettingsWindow : Window
 {
-    public SettingsWindow(AppSettings current)
+    readonly AppController _app;
+
+    public SettingsWindow(AppSettings current, AppController app)
     {
+        _app = app;
         InitializeComponent();
+        VersionText.Text = $"Версия {Updater.CurrentVersionText}";
+        ShowUpdateState(null);
+        app.UpdateStateChanged += OnUpdateStateChanged;
+        Closed += (_, _) => app.UpdateStateChanged -= OnUpdateStateChanged;
         Icon = AppIcons.WindowIcon;
         Address.Text = current.ServerUrl;
         Token.Text = current.Token;
@@ -69,6 +76,41 @@ partial class SettingsWindow : Window
             _ => "IconLink",
         });
         CheckResult.Visibility = Visibility.Visible;
+    }
+
+    void OnUpdateStateChanged() => ShowUpdateState(null);
+
+    void ShowUpdateState(string? error)
+    {
+        var available = _app.AvailableUpdate;
+        UpdateStatus.Text = error ?? (available != null ? $"Доступна сборка {available}" : "Проверяется автоматически раз в 6 часов");
+        UpdateStatus.Foreground = (Brush)FindResource(error != null ? "Danger" : available != null ? "Accent" : "Muted");
+        InstallButton.Visibility = available != null ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    async void OnCheckUpdate(object sender, RoutedEventArgs e)
+    {
+        CheckUpdateButton.IsEnabled = false;
+        UpdateStatus.Text = "Проверяю…";
+        var error = await _app.CheckUpdatesAsync(quiet: false);
+        CheckUpdateButton.IsEnabled = true;
+        if (error == null && _app.AvailableUpdate == null)
+        {
+            UpdateStatus.Text = "Установлена последняя версия";
+            UpdateStatus.Foreground = (Brush)FindResource("Ok");
+        }
+        else
+        {
+            ShowUpdateState(error);
+        }
+    }
+
+    async void OnInstallUpdate(object sender, RoutedEventArgs e)
+    {
+        InstallButton.IsEnabled = false;
+        UpdateStatus.Text = "Загружаю обновление… Программа перезапустится сама";
+        DialogResult = false;
+        await _app.InstallUpdateAsync();
     }
 
     void OnDrag(object sender, System.Windows.Input.MouseButtonEventArgs e)

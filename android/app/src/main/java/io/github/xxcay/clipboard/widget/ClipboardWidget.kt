@@ -23,7 +23,12 @@ import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
-import androidx.glance.appwidget.updateAll
+import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.state.updateAppWidgetState
+import androidx.glance.currentState
+import androidx.glance.state.PreferencesGlanceStateDefinition
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
@@ -58,10 +63,20 @@ private val White = ColorProvider(Color.White)
 
 /** Home screen widget: "Send clipboard" button and the latest items. */
 class ClipboardWidget : GlanceAppWidget() {
+    // The list lives in the widget's own state, so an update redraws it with fresh data.
+    override val stateDefinition = PreferencesGlanceStateDefinition
+
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val items = load(context)
         val me = context.app.settings.deviceName.trim()
-        provideContent { Content(context, items, me) }
+        // A freshly added widget: start with what the app already knows.
+        val hubItems = context.app.hub.items.value
+        if (hubItems.isNotEmpty()) {
+            runCatching { updateAppWidgetState(context, id) { prefs -> if (prefs[ITEMS_KEY] == null) prefs[ITEMS_KEY] = toJson(hubItems) } }
+        }
+        provideContent {
+            val json = currentState<Preferences>()[ITEMS_KEY]
+            Content(context, parse(json), me)
+        }
     }
 
     @Composable
@@ -173,21 +188,28 @@ class ClipboardWidget : GlanceAppWidget() {
     }
 
     companion object {
-        private const val PREFS = "widget"
-        private const val KEY = "items"
+        private val ITEMS_KEY = stringPreferencesKey("items")
         private const val MAX = 6
 
-        fun load(context: Context): List<ClipItem> = runCatching {
-            val json = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, "[]")
-            ClipItem.listFromJson(JSONArray(json))
-        }.getOrDefault(emptyList())
-
-        /** Stores the newest items for the widget and redraws it. */
-        suspend fun publish(context: Context, items: List<ClipItem>) {
+        private fun toJson(items: List<ClipItem>): String {
             val array = JSONArray()
             items.take(MAX).forEach { array.put(it.toJson()) }
-            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, array.toString()).apply()
-            runCatching { ClipboardWidget().updateAll(context) }
+            return array.toString()
+        }
+
+        private fun parse(json: String?): List<ClipItem> =
+            runCatching { ClipItem.listFromJson(JSONArray(json ?: "[]")) }.getOrDefault(emptyList())
+
+        /** Puts the newest items into every widget's state and redraws them. */
+        suspend fun publish(context: Context, items: List<ClipItem>) {
+            val json = toJson(items)
+            runCatching {
+                val ids = GlanceAppWidgetManager(context).getGlanceIds(ClipboardWidget::class.java)
+                for (id in ids) {
+                    updateAppWidgetState(context, id) { prefs -> prefs[ITEMS_KEY] = json }
+                    ClipboardWidget().update(context, id)
+                }
+            }
         }
     }
 }

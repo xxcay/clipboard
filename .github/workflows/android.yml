@@ -24,7 +24,9 @@ jobs:
       - name: Build APK
         run: ./gradlew --no-daemon assembleRelease
       - name: Rename
-        run: cp app/build/outputs/apk/release/app-release.apk SharedClipboard.apk
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk SharedClipboard.apk
+          echo '{"version": ${{ github.run_number }}, "commit": "${{ github.sha }}"}' > version.json
       - uses: actions/upload-artifact@v4
         with:
           name: SharedClipboard-apk
@@ -39,7 +41,9 @@ jobs:
           body: |
             Последняя сборка приложения для телефона. Коммит ${{ github.sha }}.
             Скачайте SharedClipboard.apk на телефон и установите.
-          files: android/SharedClipboard.apk
+          files: |
+            android/SharedClipboard.apk
+            android/version.json
 
   emulator-test:
     needs: build

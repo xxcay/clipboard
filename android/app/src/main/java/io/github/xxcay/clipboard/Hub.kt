@@ -85,6 +85,29 @@ class Hub(
         wake.trySend(Unit)
     }
 
+    /**
+     * The app came to the screen: make sure the list matches the router.
+     * In the background Android may cut the network without closing the
+     * socket, so deletions made meanwhile could be missed.
+     */
+    fun refresh() {
+        if (state.value != HubState.Online) {
+            reconnectNow()
+            return
+        }
+        scope.launch {
+            try {
+                val list = api.list().reversed()
+                items.value = list
+                cache.sync(list)
+                itemsChanged()
+            } catch (e: Exception) {
+                Log.w(TAG, "refresh", e)
+                reconnectNow()
+            }
+        }
+    }
+
     private fun ensureRunning() {
         if (loop?.isActive == true || holders.isEmpty()) return
         if (!settings.isConfigured) {

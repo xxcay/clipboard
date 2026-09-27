@@ -119,6 +119,15 @@ partial class FlyoutWindow : Window
 
     void OnBannerClick(object sender, MouseButtonEventArgs e) => _app.ShowSettings();
 
+    public void UpdateAvailable(int? version)
+    {
+        UpdateBanner.Visibility = version == null ? Visibility.Collapsed : Visibility.Visible;
+        if (version != null)
+            UpdateText.Text = $"Доступна новая версия (сборка {version})";
+    }
+
+    void OnUpdateClick(object sender, MouseButtonEventArgs e) => _ = _app.InstallUpdateAsync();
+
     // ---- Filters and counts ----
 
     bool Matches(ItemViewModel vm) => _filter switch
@@ -143,7 +152,7 @@ partial class FlyoutWindow : Window
         var items = _app.Items;
         var files = items.Count(i => i.IsFile);
         CountText.Text = items.Count == 0
-            ? "Скопируйте на одном устройстве — вставьте на другом"
+            ? "ПК · ноутбук · телефон"
             : files > 0
                 ? $"{Plural(items.Count, "запись", "записи", "записей")} · {Plural(files, "файл", "файла", "файлов")}"
                 : Plural(items.Count, "запись", "записи", "записей");

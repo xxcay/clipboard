@@ -224,3 +224,64 @@ public sealed class HubClientTests : IDisposable
         public void Report(double value) => report(value);
     }
 }
+
+public sealed class UpdaterTests : IDisposable
+{
+    readonly string _dir = Directory.CreateTempSubdirectory("updater").FullName;
+
+    public void Dispose() => Directory.Delete(_dir, true);
+
+    [Fact]
+    public void PicksTheSameKindOfBuild()
+    {
+        Assert.Equal("SharedClipboard.exe", Updater.AssetFor(66 << 20));
+        Assert.Equal("SharedClipboard-small.exe", Updater.AssetFor(400_000));
+    }
+
+    [Fact]
+    public void SwapsTheExeAndCleansUp()
+    {
+        var exe = Path.Combine(_dir, "SharedClipboard.exe");
+        var fresh = exe + ".new";
+        File.WriteAllText(exe, "old");
+        File.WriteAllText(fresh, "new");
+        Updater.Swap(exe, fresh);
+        Assert.Equal("new", File.ReadAllText(exe));
+        Assert.Equal("old", File.ReadAllText(exe + ".old"));
+        Updater.CleanUp(exe);
+        Assert.False(File.Exists(exe + ".old"));
+    }
+
+    [Fact]
+    public async Task ReadsVersionAndDownloads()
+    {
+        var files = new Dictionary<string, byte[]>
+        {
+            ["version.json"] = System.Text.Encoding.UTF8.GetBytes("""{"version":42,"commit":"abc"}"""),
+            ["SharedClipboard-small.exe"] = [(byte)'M', (byte)'Z', .. new byte[200_000]],
+            ["broken.exe"] = new byte[200_000],
+        };
+        var http = new HttpClient(new FakeHandler(files));
+        var u = new Updater(http, "https://example.test/");
+        var info = await u.LatestAsync();
+        Assert.Equal(42, info.Version);
+
+        var dest = Path.Combine(_dir, "a.exe");
+        await u.DownloadAsync("SharedClipboard-small.exe", dest);
+        Assert.Equal(200_002, new FileInfo(dest).Length);
+
+        await Assert.ThrowsAsync<ClipException>(() => u.DownloadAsync("broken.exe", Path.Combine(_dir, "b.exe")));
+        Assert.False(File.Exists(Path.Combine(_dir, "b.exe")));
+    }
+
+    sealed class FakeHandler(Dictionary<string, byte[]> files) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            var name = request.RequestUri!.Segments[^1];
+            return Task.FromResult(files.TryGetValue(name, out var data)
+                ? new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new ByteArrayContent(data) }
+                : new HttpResponseMessage(System.Net.HttpStatusCode.NotFound));
+        }
+    }
+}

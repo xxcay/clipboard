@@ -411,6 +411,27 @@ public sealed class HubClient : IDisposable
         System.IO.File.Move(part, destPath, overwrite: true);
     }
 
+    /// <summary>
+    /// Re-reads the list over HTTP and raises <see cref="Synced"/>. Used when the
+    /// panel opens, in case the computer slept and events were missed.
+    /// </summary>
+    public async Task RefreshAsync(CancellationToken ct = default)
+    {
+        if (State != HubState.Online)
+            return;
+        using var req = Request(HttpMethod.Get, "api/items");
+        using var resp = await SendAsync(req, ct);
+        var list = await resp.Content.ReadFromJsonAsync<List<ClipItem>>(Json.Options, ct) ?? [];
+        List<ClipItem> snapshot;
+        lock (_lock)
+        {
+            _items.Clear();
+            _items.AddRange(list.Where(i => i.Id.Length > 0));
+            snapshot = _items.ToList();
+        }
+        Synced?.Invoke(snapshot);
+    }
+
     public async Task DeleteAsync(string id, CancellationToken ct = default)
     {
         using var req = Request(HttpMethod.Delete, "api/items/" + Uri.EscapeDataString(id));

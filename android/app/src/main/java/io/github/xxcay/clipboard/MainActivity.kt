@@ -57,7 +57,9 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         app.hub.retain(HOLDER)
+        app.hub.refresh()
         SyncService.start(this)
+        app.updater.checkIfDue()
     }
 
     override fun onStop() {

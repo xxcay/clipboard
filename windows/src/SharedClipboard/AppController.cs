@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Diagnostics;
 using System.IO;
+using System.Net.Http;
 using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Win32;
@@ -22,11 +23,19 @@ sealed class AppController(Dispatcher ui) : IDisposable
     FlyoutWindow _flyout = null!;
     SettingsWindow? _settingsWindow;
     int _unread;
+    readonly Updater _updater = new(new HttpClient { Timeout = TimeSpan.FromMinutes(10) });
+    readonly DispatcherTimer _updateTimer = new() { Interval = TimeSpan.FromHours(6) };
+    bool _updateNotified;
+
+    /// <summary>Build number of a newer release, or null.</summary>
+    public int? AvailableUpdate { get; private set; }
+
+    public event Action? UpdateStateChanged;
 
     public ObservableCollection<ItemViewModel> Items { get; } = [];
     public AppSettings Settings { get; private set; } = new();
 
-    public void Start(bool showPanel)
+    public void Start(bool showPanel, bool updated = false)
     {
         Directory.CreateDirectory(DataDir);
         Log.Path = Path.Combine(DataDir, "log.txt");
@@ -47,6 +56,17 @@ sealed class AppController(Dispatcher ui) : IDisposable
 
         if (Settings.Autostart)
             Autostart.Apply(true); // keeps the path right if the .exe was moved
+
+        Updater.CleanUp(Environment.ProcessPath ?? "");
+        if (updated)
+            _tray.Notify("Общий буфер обновлён", $"Версия {Updater.CurrentVersionText}");
+        _updateTimer.Tick += (_, _) => _ = CheckUpdatesAsync(quiet: true);
+        _updateTimer.Start();
+        ui.BeginInvoke(async () =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(8));
+            await CheckUpdatesAsync(quiet: true);
+        });
 
         if (Settings.IsConfigured)
         {
@@ -77,16 +97,24 @@ sealed class AppController(Dispatcher ui) : IDisposable
 
     bool IsMine(ClipItem item) => item.From == Settings.DeviceName.Trim();
 
+    /// <summary>Makes the list match the hub, keeping rows that did not change.</summary>
     void OnSynced(IReadOnlyList<ClipItem> items)
     {
-        Items.Clear();
-        foreach (var item in items.Reverse())
+        var ids = items.Select(i => i.Id).ToHashSet();
+        foreach (var gone in Items.Where(v => !ids.Contains(v.Id)).ToList())
+            Items.Remove(gone);
+        var have = Items.Select(v => v.Id).ToHashSet();
+        var newestFirst = items.Reverse().ToList();
+        for (var i = 0; i < newestFirst.Count; i++)
         {
+            var item = newestFirst[i];
+            if (have.Contains(item.Id))
+                continue;
             var vm = new ItemViewModel(item, IsMine(item));
-            Items.Add(vm);
+            Items.Insert(Math.Min(i, Items.Count), vm);
             Prefetch(vm);
         }
-        _cache.Cleanup(items.Select(i => i.Id));
+        _cache.Cleanup(ids);
     }
 
     void OnItemAdded(ClipItem item)
@@ -211,6 +239,19 @@ sealed class AppController(Dispatcher ui) : IDisposable
         _unread = 0;
         UpdateStatus();
         _flyout.ShowAtTray();
+        _ = RefreshQuietly();
+    }
+
+    async Task RefreshQuietly()
+    {
+        try
+        {
+            await _hub.RefreshAsync();
+        }
+        catch (Exception e)
+        {
+            Log.Write($"refresh: {e.Message}");
+        }
     }
 
     public void ShowSettings()
@@ -221,7 +262,7 @@ sealed class AppController(Dispatcher ui) : IDisposable
             return;
         }
         _flyout.Hide();
-        _settingsWindow = new SettingsWindow(Settings);
+        _settingsWindow = new SettingsWindow(Settings, this);
         try
         {
             if (_settingsWindow.ShowDialog() != true)
@@ -268,6 +309,71 @@ sealed class AppController(Dispatcher ui) : IDisposable
             _flyout.ShowStatus(text, error);
         else
             _tray.Notify(error ? "Общий буфер — ошибка" : "Общий буфер", text, error);
+    }
+
+    // ---- Updates ----
+
+    /// <summary>Checks GitHub for a newer build. Returns an error message or null.</summary>
+    public async Task<string?> CheckUpdatesAsync(bool quiet)
+    {
+        try
+        {
+            var latest = await _updater.LatestAsync();
+            AvailableUpdate = latest.Version > Updater.CurrentVersion ? latest.Version : null;
+            Log.Write($"update check: current {Updater.CurrentVersion}, latest {latest.Version}");
+        }
+        catch (Exception e)
+        {
+            Log.Write($"update check: {e.Message}");
+            return quiet ? null : "Нет связи с GitHub. Есть интернет?";
+        }
+        _flyout.UpdateAvailable(AvailableUpdate);
+        UpdateStateChanged?.Invoke();
+        if (quiet && AvailableUpdate != null && !_updateNotified)
+        {
+            _updateNotified = true;
+            _tray.Notify("Доступно обновление", "Откройте панель и нажмите «Обновить»");
+        }
+        return null;
+    }
+
+    bool _installing;
+
+    /// <summary>Downloads the new build, swaps the .exe and restarts.</summary>
+    public async Task InstallUpdateAsync()
+    {
+        if (_installing || AvailableUpdate == null || Environment.ProcessPath is not { } exe)
+            return;
+        _installing = true;
+        var fresh = exe + ".new";
+        try
+        {
+            var asset = Updater.AssetFor(new FileInfo(exe).Length);
+            var progress = new Progress<double>(p =>
+            {
+                if (_flyout.IsVisible)
+                    _flyout.ShowProgress($"Загрузка обновления… {p:P0}");
+            });
+            await _updater.DownloadAsync(asset, fresh, progress);
+            Updater.Swap(exe, fresh);
+            Log.Write($"updated to {AvailableUpdate}, restarting");
+            ((App)Application.Current).Restart(exe);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            Status("Нет прав на папку программы. Переложите .exe, например, в «Документы»", true);
+        }
+        catch (Exception e)
+        {
+            Log.Write($"update: {e}");
+            Status("Не удалось обновить: " + e.Message, true);
+            TryDelete(fresh);
+        }
+        finally
+        {
+            _installing = false;
+            _flyout.ClearProgress();
+        }
     }
 
     // ---- Sending ----

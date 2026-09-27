@@ -106,6 +106,25 @@
           </StackPanel>
         </CheckBox>
 
+        <Border Height="1" Background="{DynamicResource Line}" Margin="0,14,0,18" />
+
+        <TextBlock Text="ОБНОВЛЕНИЯ" Style="{StaticResource Section}" />
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock x:Name="VersionText" FontWeight="Medium" />
+            <TextBlock x:Name="UpdateStatus" Foreground="{DynamicResource Muted}" FontSize="12" Margin="0,2,0,0" TextWrapping="Wrap" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal">
+            <Button x:Name="CheckUpdateButton" Style="{StaticResource SecondaryButton}" Content="Проверить" Click="OnCheckUpdate" />
+            <Button x:Name="InstallButton" Style="{StaticResource PrimaryButton}" Content="Обновить" Margin="8,0,0,0"
+                    Click="OnInstallUpdate" Visibility="Collapsed" />
+          </StackPanel>
+        </Grid>
+
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,22,0,0">
           <Button Content="Отмена" Style="{StaticResource GhostButton}" Margin="0,0,8,0" IsCancel="True" Click="OnCancel" />
           <Button Content="Сохранить" Style="{StaticResource PrimaryButton}" IsDefault="True" Click="OnSave" MinWidth="130" />

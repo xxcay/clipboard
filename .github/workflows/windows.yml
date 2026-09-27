@@ -36,9 +36,9 @@ jobs:
         with:
           dotnet-version: 8.0.x
       - name: Publish (self-contained)
-        run: dotnet publish windows/src/SharedClipboard -c Release -o windows/dist -warnaserror
+        run: dotnet publish windows/src/SharedClipboard -c Release -o windows/dist -warnaserror -p:Version=1.0.${{ github.run_number }}
       - name: Publish (small, needs .NET Desktop Runtime)
-        run: dotnet publish windows/src/SharedClipboard -c Release -o windows/dist-small -p:SelfContained=false -p:EnableCompressionInSingleFile=false -warnaserror
+        run: dotnet publish windows/src/SharedClipboard -c Release -o windows/dist-small -p:SelfContained=false -p:EnableCompressionInSingleFile=false -warnaserror -p:Version=1.0.${{ github.run_number }}
       - name: Build clipd for the smoke test
         working-directory: server
         run: go build -o clipd.exe .
@@ -69,6 +69,7 @@ jobs:
           New-Item -ItemType Directory -Force release | Out-Null
           Copy-Item windows/dist/SharedClipboard.exe release/SharedClipboard.exe
           Copy-Item windows/dist-small/SharedClipboard.exe release/SharedClipboard-small.exe
+          '{"version": ${{ github.run_number }}, "commit": "${{ github.sha }}"}' | Set-Content -Encoding ascii release/version.json
       - name: Publish to the "windows-latest" release
         if: github.ref_name == 'claude/shared-clipboard-app-wi9m82' || github.ref_name == 'main'
         uses: softprops/action-gh-release@v2
@@ -83,3 +84,4 @@ jobs:
           files: |
             release/SharedClipboard.exe
             release/SharedClipboard-small.exe
+            release/version.json

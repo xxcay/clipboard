@@ -19,6 +19,18 @@ partial class App : Application
 
         // One copy per user. Starting it again just opens the panel.
         _instance = new Mutex(true, InstanceName, out var first);
+        if (!first && e.Args.Contains("--updated"))
+        {
+            // The old version is still closing: wait for it.
+            try
+            {
+                first = _instance.WaitOne(TimeSpan.FromSeconds(10));
+            }
+            catch (AbandonedMutexException)
+            {
+                first = true;
+            }
+        }
         if (!first)
         {
             try
@@ -48,13 +60,30 @@ partial class App : Application
         try
         {
             _controller = new AppController(Dispatcher);
-            _controller.Start(showPanel: !e.Args.Contains("--autostart"));
+            _controller.Start(showPanel: !e.Args.Contains("--autostart"), updated: e.Args.Contains("--updated"));
         }
         catch (Exception ex)
         {
             CrashReport.Show("Программа не смогла запуститься", ex);
             Shutdown(1);
         }
+    }
+
+    /// <summary>Starts the freshly installed version and closes this one.</summary>
+    public void Restart(string exe)
+    {
+        _controller?.Dispose();
+        try
+        {
+            _instance?.ReleaseMutex();
+        }
+        catch
+        {
+        }
+        _instance?.Dispose();
+        _instance = null;
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe, "--updated") { UseShellExecute = false });
+        Shutdown();
     }
 
     protected override void OnExit(ExitEventArgs e)

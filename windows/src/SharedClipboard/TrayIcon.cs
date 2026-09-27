@@ -27,6 +27,16 @@ sealed class TrayIcon : IDisposable
         _autostart = new WinForms.ToolStripMenuItem("Запускать вместе с Windows") { CheckOnClick = true };
         _autostart.Click += (_, _) => app.SetAutostart(_autostart.Checked);
         menu.Items.Add(_autostart);
+        menu.Items.Add("Проверить обновления", null, async (_, _) =>
+        {
+            var error = await app.CheckUpdatesAsync(quiet: false);
+            if (error != null)
+                Notify("Общий буфер", error, error: true);
+            else if (app.AvailableUpdate is { } v)
+                app.ShowFlyout();
+            else
+                Notify("Общий буфер", $"Установлена последняя версия ({SharedClipboard.Core.Updater.CurrentVersionText})");
+        });
         menu.Items.Add(new WinForms.ToolStripSeparator());
         menu.Items.Add("Выход", null, (_, _) => app.Exit());
         menu.Opening += (_, _) => _autostart.Checked = app.Settings.Autostart;

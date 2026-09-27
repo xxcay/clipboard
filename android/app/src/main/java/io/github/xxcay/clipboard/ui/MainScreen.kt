@@ -108,6 +108,7 @@ fun MainScreen(onSettings: () -> Unit) {
     val ready by app.cache.ready.collectAsStateWithLifecycle()
     val progress by app.cache.progress.collectAsStateWithLifecycle()
     val upload by app.sender.upload.collectAsStateWithLifecycle()
+    val update by app.updater.state.collectAsStateWithLifecycle()
     var filter by rememberSaveable { mutableStateOf(Filter.All) }
     var sheetItemId by rememberSaveable { mutableStateOf<String?>(null) }
     var errorSnack by remember { mutableStateOf(false) }
@@ -199,6 +200,9 @@ fun MainScreen(onSettings: () -> Unit) {
         ) {
             item { Header(items, onSettings) }
             item { ConnectionBanner(state, onRetry = { app.hub.reconnectNow() }, onSettings = onSettings) }
+            item {
+                UpdateCard(update, onInstall = { app.updater.install(context) }, modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 14.dp))
+            }
             item {
                 SendCard(
                     onPaste = ::pasteFromClipboard,

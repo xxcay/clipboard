@@ -148,8 +148,24 @@
         <RadioButton x:Name="ChipText" Style="{StaticResource Chip}" Content="Текст" Checked="OnFilter" />
       </StackPanel>
 
+      <StackPanel Grid.Row="2">
+        <!-- New version on GitHub -->
+        <Border x:Name="UpdateBanner" Margin="12,0,12,8" CornerRadius="10" Padding="12,9"
+                Background="{DynamicResource AccentSoft}" BorderBrush="#FFFFD9C2" BorderThickness="1"
+                Visibility="Collapsed" Cursor="Hand" MouseLeftButtonUp="OnUpdateClick">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Path Data="{StaticResource IconUpload}" Fill="{DynamicResource Accent}" Stretch="Uniform" Width="14" Height="14" />
+            <TextBlock x:Name="UpdateText" Grid.Column="1" Margin="9,0,0,0" FontSize="12.5" Text="Доступна новая версия" />
+            <TextBlock Grid.Column="2" Text="Обновить" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource Accent}" />
+          </Grid>
+        </Border>
       <!-- Shown only when something is wrong with the connection -->
-      <Border x:Name="Banner" Grid.Row="2" Margin="12,0,12,8" CornerRadius="10" Padding="12,9"
+      <Border x:Name="Banner" Margin="12,0,12,8" CornerRadius="10" Padding="12,9"
               Background="{DynamicResource DangerSoft}" Visibility="Collapsed" Cursor="Hand"
               MouseLeftButtonUp="OnBannerClick">
         <Grid>
@@ -162,6 +178,8 @@
                      Foreground="{DynamicResource Danger}" />
         </Grid>
       </Border>
+
+      </StackPanel>
 
       <!-- Items -->
       <ListBox x:Name="List" Grid.Row="3" ItemsSource="{Binding Items}"
@@ -203,9 +221,48 @@
       <StackPanel Grid.Row="4" Margin="14,6,14,14">
         <Button Style="{StaticResource PrimaryButton}" Height="44" Click="OnSendClipboard" HorizontalContentAlignment="Stretch"
                 ToolTip="Отправить то, что сейчас скопировано: файлы, скриншот или текст">
+          <Button.Triggers>
+            <EventTrigger RoutedEvent="MouseEnter">
+              <BeginStoryboard>
+                <Storyboard>
+                  <DoubleAnimationUsingKeyFrames Storyboard.TargetName="SendArrow"
+                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)">
+                    <DiscreteDoubleKeyFrame KeyTime="0:0:0" Value="0" />
+                    <EasingDoubleKeyFrame KeyTime="0:0:0.28" Value="-20">
+                      <EasingDoubleKeyFrame.EasingFunction><CubicEase EasingMode="EaseIn" /></EasingDoubleKeyFrame.EasingFunction>
+                    </EasingDoubleKeyFrame>
+                    <DiscreteDoubleKeyFrame KeyTime="0:0:0.30" Value="15" />
+                    <EasingDoubleKeyFrame KeyTime="0:0:0.72" Value="0">
+                      <EasingDoubleKeyFrame.EasingFunction><BackEase EasingMode="EaseOut" Amplitude="0.35" /></EasingDoubleKeyFrame.EasingFunction>
+                    </EasingDoubleKeyFrame>
+                  </DoubleAnimationUsingKeyFrames>
+                  <DoubleAnimationUsingKeyFrames Storyboard.TargetName="SendArrow" Storyboard.TargetProperty="Opacity">
+                    <DiscreteDoubleKeyFrame KeyTime="0:0:0" Value="1" />
+                    <LinearDoubleKeyFrame KeyTime="0:0:0.28" Value="0" />
+                    <DiscreteDoubleKeyFrame KeyTime="0:0:0.30" Value="1" />
+                  </DoubleAnimationUsingKeyFrames>
+                </Storyboard>
+              </BeginStoryboard>
+            </EventTrigger>
+          </Button.Triggers>
           <Grid>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-              <Path Data="{StaticResource IconUpload}" Fill="White" Stretch="Uniform" Width="15" Height="15" Margin="0,0,8,0" />
+              <!-- Upload icon: the arrow flies up and comes back out of the line on hover. -->
+              <Viewbox Width="16" Height="16" Margin="0,0,8,0">
+                <Grid Width="24" Height="24">
+                  <Canvas Width="24" Height="24">
+                    <Canvas.Clip>
+                      <RectangleGeometry Rect="0,0,24,17.4" />
+                    </Canvas.Clip>
+                    <Path x:Name="SendArrow" Data="M9 16h6v-6h4l-7-7-7 7h4z" Fill="White">
+                      <Path.RenderTransform>
+                        <TranslateTransform />
+                      </Path.RenderTransform>
+                    </Path>
+                  </Canvas>
+                  <Path Data="M5 18h14v2H5z" Fill="White" />
+                </Grid>
+              </Viewbox>
               <TextBlock Text="Отправить из буфера" Foreground="White" FontSize="13.5" VerticalAlignment="Center" />
             </StackPanel>
             <Border HorizontalAlignment="Right" CornerRadius="6" Background="#33FFFFFF" Padding="7,2">

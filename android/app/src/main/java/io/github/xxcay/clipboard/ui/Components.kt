@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Slideshow
+import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -217,5 +218,48 @@ fun ActionRow(icon: ImageVector, title: String, description: String, trailing: S
         }
     } else {
         Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, content = content)
+    }
+}
+
+/** "Update available" / progress card, used on the main screen and in settings. */
+@Composable
+fun UpdateCard(state: io.github.xxcay.clipboard.UpdateState, onInstall: () -> Unit, modifier: Modifier = Modifier) {
+    val version = when (state) {
+        is io.github.xxcay.clipboard.UpdateState.Available -> state.version
+        is io.github.xxcay.clipboard.UpdateState.Downloading -> state.version
+        else -> return
+    }
+    val progress = (state as? io.github.xxcay.clipboard.UpdateState.Downloading)?.progress
+    Surface(
+        onClick = onInstall,
+        enabled = progress == null,
+        shape = RoundedCornerShape(20.dp),
+        color = Palette.Soft,
+        border = BorderStroke(1.dp, Color(0xFFFFD9C2)),
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(Palette.Gradient),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(androidx.compose.material.icons.Icons.Rounded.SystemUpdate, null, tint = Color.White, modifier = Modifier.size(20.dp))
+            }
+            Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+                Text("Доступно обновление", fontWeight = FontWeight.SemiBold, color = Palette.Ink)
+                if (progress == null) {
+                    Text("Сборка $version · нажмите, чтобы установить", fontSize = 13.sp, color = Palette.Muted)
+                } else {
+                    Text("Загрузка… ${(progress * 100).toInt()}%", fontSize = 13.sp, color = Palette.Muted)
+                    androidx.compose.material3.LinearProgressIndicator(
+                        progress = { progress },
+                        color = Palette.Orange,
+                        trackColor = Color.White,
+                        modifier = Modifier.padding(top = 6.dp).fillMaxWidth().height(4.dp).clip(CircleShape),
+                    )
+                }
+            }
+            if (progress == null) Text("Обновить", color = Palette.OrangeDeep, fontWeight = FontWeight.Bold)
+        }
     }
 }

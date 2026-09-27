@@ -40,6 +40,7 @@ import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Router
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Smartphone
 import androidx.compose.material.icons.rounded.TouchApp
@@ -79,6 +80,8 @@ import androidx.compose.ui.unit.sp
 import io.github.xxcay.clipboard.R
 import io.github.xxcay.clipboard.SendTileService
 import io.github.xxcay.clipboard.SetupLink
+import io.github.xxcay.clipboard.UpdateState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.xxcay.clipboard.ServerAddress
 import io.github.xxcay.clipboard.SyncService
 import io.github.xxcay.clipboard.app
@@ -288,6 +291,10 @@ fun SettingsScreen(firstRun: Boolean, prefill: SetupLink?, onBack: () -> Unit, o
             }
         }
 
+        Spacer(Modifier.height(24.dp))
+        SectionTitle("ОБНОВЛЕНИЯ")
+        UpdateSection()
+
         Spacer(Modifier.height(28.dp))
         GradientButton("Сохранить", onClick = ::save, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(20.dp))
@@ -361,5 +368,52 @@ private fun requestBattery(context: Context) {
     val intent = Intent(SystemSettings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${context.packageName}"))
     runCatching { context.startActivity(intent) }.onFailure {
         runCatching { context.startActivity(Intent(SystemSettings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
+    }
+}
+
+@Composable
+private fun UpdateSection() {
+    val context = LocalContext.current
+    val updater = context.app.updater
+    val state by updater.state.collectAsStateWithLifecycle()
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Версия ${updater.currentName}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    Text(
+                        when (val s = state) {
+                            UpdateState.Checking -> "Проверяю…"
+                            UpdateState.UpToDate -> "Установлена последняя версия"
+                            is UpdateState.Failed -> s.message
+                            is UpdateState.Available, is UpdateState.Downloading -> "Есть новая версия"
+                            UpdateState.Idle -> "Сборка ${updater.currentVersion}"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (state is UpdateState.Failed) Palette.Danger else Palette.Muted,
+                    )
+                }
+                Surface(
+                    onClick = { updater.check() },
+                    enabled = state !is UpdateState.Checking && state !is UpdateState.Downloading,
+                    shape = RoundedCornerShape(14.dp),
+                    color = Palette.Soft,
+                ) {
+                    Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (state is UpdateState.Checking) {
+                            CircularProgressIndicator(color = Palette.Orange, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+                        } else {
+                            Icon(Icons.Rounded.Refresh, null, tint = Palette.Orange, modifier = Modifier.size(18.dp))
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Text("Проверить", color = Palette.OrangeDeep, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+            if (state is UpdateState.Available || state is UpdateState.Downloading) {
+                Spacer(Modifier.height(14.dp))
+                UpdateCard(state, onInstall = { updater.install(context) })
+            }
+        }
     }
 }

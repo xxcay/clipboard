@@ -21,6 +21,8 @@ class App : Application() {
         private set
     lateinit var sender: Sender
         private set
+    lateinit var updater: Updater
+        private set
 
     override fun onCreate() {
         super.onCreate()
@@ -34,6 +36,7 @@ class App : Application() {
         cache = FileCache(this, api)
         hub = Hub(this, settings, api, cache, http)
         sender = Sender(this)
+        updater = Updater(this)
         Notifications.createChannels(this)
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(LifecycleEventObserver { _, event ->
