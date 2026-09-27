@@ -89,6 +89,8 @@ class ClipboardWidget : GlanceAppWidget() {
                 .padding(14.dp),
         ) {
             Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                // Logo and title open the app too.
+                Row(GlanceModifier.defaultWeight().clickable(actionStartActivity<MainActivity>()), verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     GlanceModifier.size(34.dp).background(ImageProvider(R.drawable.widget_logo_bg)),
                     contentAlignment = Alignment.Center,
@@ -104,14 +106,15 @@ class ClipboardWidget : GlanceAppWidget() {
                         maxLines = 1,
                     )
                 }
+                }
                 Box(
                     GlanceModifier
                         .size(34.dp)
                         .background(ImageProvider(R.drawable.widget_soft_bg))
-                        .clickable(actionRunCallback<RefreshAction>()),
+                        .clickable(actionStartActivity<MainActivity>()),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Image(ImageProvider(R.drawable.ic_refresh), "Обновить", GlanceModifier.size(18.dp), colorFilter = ColorFilter.tint(Orange))
+                    Image(ImageProvider(R.drawable.ic_open), "Открыть приложение", GlanceModifier.size(18.dp), colorFilter = ColorFilter.tint(Orange))
                 }
             }
 
@@ -232,20 +235,6 @@ class CopyAction : ActionCallback {
 
     companion object {
         val TextKey = ActionParameters.Key<String>("text")
-    }
-}
-
-/** Refresh button: fetch the latest items even when the app is closed. */
-class RefreshAction : ActionCallback {
-    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
-        try {
-            val items = context.app.api.list().reversed()
-            ClipboardWidget.publish(context, items)
-        } catch (e: Exception) {
-            withContext(Dispatchers.Main) {
-                Toast.makeText(context, e.message ?: "Нет связи с роутером", Toast.LENGTH_SHORT).show()
-            }
-        }
     }
 }
 
